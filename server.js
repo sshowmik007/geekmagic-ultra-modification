@@ -8,8 +8,10 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 
-// In-memory mock device state
-let mockSettings = {
+const MOCK_STORAGE_FILE = path.join(__dirname, "mock_settings.json");
+
+// Load persistent mock state if file exists, else use defaults
+let defaultMockSettings = {
   display: {
     theme: "Weather Clock Today",
     brightness: 65,
@@ -56,6 +58,32 @@ let mockSettings = {
     intervalSeconds: 30,
   },
 };
+
+let mockSettings = { ...defaultMockSettings };
+if (fs.existsSync(MOCK_STORAGE_FILE)) {
+  try {
+    const saved = JSON.parse(fs.readFileSync(MOCK_STORAGE_FILE, "utf8"));
+    mockSettings = {
+      ...defaultMockSettings,
+      ...saved,
+      display: { ...defaultMockSettings.display, ...(saved.display || {}) },
+      weather: { ...defaultMockSettings.weather, ...(saved.weather || {}) },
+      time: { ...defaultMockSettings.time, ...(saved.time || {}) },
+      network: { ...defaultMockSettings.network, ...(saved.network || {}) },
+      media: { ...defaultMockSettings.media, ...(saved.media || {}) },
+    };
+  } catch (e) {
+    console.warn("Failed to load mock_settings.json, using defaults.");
+  }
+}
+
+function persistSettings() {
+  try {
+    fs.writeFileSync(MOCK_STORAGE_FILE, JSON.stringify(mockSettings, null, 2), "utf8");
+  } catch (e) {
+    console.error("Failed to write mock_settings.json:", e);
+  }
+}
 
 const mimeTypes = {
   ".html": "text/html",
@@ -140,6 +168,7 @@ export function createServer() {
               network: { ...mockSettings.network, ...(data.network || {}) },
               media: { ...mockSettings.media, ...(data.media || {}) },
             };
+            persistSettings();
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, message: "Settings saved to flash." }));
           } catch {
@@ -173,6 +202,7 @@ export function createServer() {
             const { ssid, password, bootDelay } = JSON.parse(body);
             mockSettings.network.ssid = ssid;
             if (bootDelay !== undefined) mockSettings.network.bootDelay = bootDelay;
+            persistSettings();
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, message: `Connected to ${ssid}.` }));
           } catch {

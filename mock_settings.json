@@ -1,0 +1,121 @@
+{
+  "display": {
+    "theme": "Weather & Prayer Station",
+    "brightness": 65,
+    "autoSwitch": false,
+    "switchInterval": 30,
+    "nightMode": {
+      "enabled": true,
+      "startTime": "22:00",
+      "endTime": "07:00",
+      "brightness": 20
+    },
+    "activeThemes": [
+      "Weather Clock Today",
+      "Weather Forecast",
+      "Simple Weather Clock"
+    ]
+  },
+  "weather": {
+    "city": "Dhaka",
+    "cityId": "1185241",
+    "tempUnit": "°C",
+    "windSpeedUnit": "m/s",
+    "pressureUnit": "hPa",
+    "updateInterval": 20,
+    "apiKey": "••••••••••••••••••••••••••••••••",
+    "forecastApiKey": ""
+  },
+  "time": {
+    "mode": "Auto",
+    "timezone": "Asia/Dhaka (UTC+6:00)",
+    "utcOffset": "UTC+6:00",
+    "hourFormat": "12-Hour",
+    "dateFormat": "DD MMM . Day",
+    "colonBlink": true,
+    "fontStyle": "Default Big Font",
+    "ntp": "pool.ntp.org",
+    "colors": {
+      "hour": "#ffffff",
+      "minute": "#feba01",
+      "second": "#ffffff"
+    }
+  },
+  "network": {
+    "ssid": "Home",
+    "bootDelay": 0,
+    "status": "Connected",
+    "signal": 68,
+    "scannedNetworks": [
+      {
+        "ssid": "Home",
+        "rssi": 68,
+        "security": "WPA2",
+        "signal": "Strong"
+      },
+      {
+        "ssid": "Ovi's 2.4",
+        "rssi": 64,
+        "security": "WPA2",
+        "signal": "Medium"
+      },
+      {
+        "ssid": "Hufflepuff House",
+        "rssi": 49,
+        "security": "WPA2",
+        "signal": "Medium"
+      },
+      {
+        "ssid": "Dobby is FREE!",
+        "rssi": 33,
+        "security": "WPA2",
+        "signal": "Weak"
+      },
+      {
+        "ssid": "YOLO_IoT",
+        "rssi": 26,
+        "security": "Open",
+        "signal": "Weak"
+      }
+    ]
+  },
+  "media": {
+    "autoDisplay": false,
+    "intervalSeconds": 30,
+    "files": [
+      {
+        "name": "cat_retro.gif",
+        "size": "84 KB",
+        "type": "GIF (240x240)"
+      },
+      {
+        "name": "pixel_sunset.jpg",
+        "size": "48 KB",
+        "type": "JPG (240x240)"
+      },
+      {
+        "name": "cyber_grid.gif",
+        "size": "112 KB",
+        "type": "GIF (240x240)"
+      }
+    ]
+  },
+  "prayer": {
+    "enabled": true,
+    "city": "Dhaka",
+    "country": "Bangladesh",
+    "latitude": 23.8103,
+    "longitude": 90.4125,
+    "method": "1",
+    "asrMethod": "Hanafi",
+    "timings": {
+      "fajr": "04:43",
+      "sunrise": "05:59",
+      "dhuhr": "11:43",
+      "asr": "15:01",
+      "maghrib": "17:27",
+      "isha": "18:43"
+    },
+    "nextWaqt": "Isha"
+  }
+}

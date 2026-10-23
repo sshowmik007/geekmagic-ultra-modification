@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmallTV-Ultra Minimalist Clock & Weather UI (240x240 Preview)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #1a1a1e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist Sans", "Segoe UI", Roboto, sans-serif;
+      color: #e5e5e7;
+      padding: 24px;
+    }
+    .preview-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .device-bezel {
+      width: 290px;
+      height: 290px;
+      background: #25262b;
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .device-bezel::after {
+      content: "GEEKMAGIC";
+      position: absolute;
+      bottom: 8px;
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: #555760;
+      font-weight: 600;
+    }
+    /* Exact 240x240 ST7789 IPS Display */
+    .screen-canvas {
+      width: 240px;
+      height: 240px;
+      background-color: #0c0d10;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 14px 14px;
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+    }
+    /* Top Bar: Date & Status */
+    .screen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 4px;
+    }
+    .date-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8f96;
+    }
+    .wifi-status {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .wifi-dot {
+      width: 5px;
+      height: 5px;
+      background-color: #4ade80;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #4ade80;
+    }
+    .wifi-label {
+      font-size: 9px;
+      color: #71737d;
+      font-weight: 500;
+    }
+    /* Center Clock */
+    .clock-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+    }
+    .time-digits {
+      font-size: 58px;
+      font-weight: 700;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      display: flex;
+      align-items: baseline;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+    }
+    .hour {
+      color: #ffffff;
+    }
+    .colon {
+      color: #f59e0b;
+      margin: 0 1px;
+      font-weight: 400;
+      animation: blink 1s infinite step-start;
+    }
+    .minute {
+      color: #ffffff;
+    }
+    .seconds-pill {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f59e0b;
+      margin-left: 4px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    @keyframes blink {
+      50% { opacity: 0.2; }
+    }
+    /* Divider */
+    .screen-divider {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.03) 100%);
+      margin-bottom: 10px;
+    }
+    /* Weather Section */
+    .weather-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .weather-primary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .weather-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Minimalist Geometric Sun Icon */
+    .sun-icon {
+      width: 24px;
+      height: 24px;
+      color: #f59e0b;
+      flex-shrink: 0;
+    }
+    .temp-display {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: #f3f4f6;
+      line-height: 1;
+    }
+    .temp-unit {
+      font-size: 15px;
+      font-weight: 400;
+      color: #9ca3af;
+    }
+    .weather-condition {
+      text-align: right;
+    }
+    .condition-text {
+      font-size: 11px;
+      font-weight: 600;
+      color: #e5e7eb;
+      letter-spacing: 0.02em;
+    }
+    .location-text {
+      font-size: 9.5px;
+      color: #71737d;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .weather-metrics {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #71737d;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+      padding-top: 2px;
+    }
+    .metric-item span {
+      color: #9ca3af;
+      font-weight: 600;
+    }
+    .meta-tag {
+      font-size: 12px;
+      color: #a1a1aa;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-wrapper">
+    <div class="device-bezel">
+      <div class="screen-canvas">
+        <!-- Top Status -->
+        <div class="screen-header">
+          <span class="date-badge">Fri · 24 Oct</span>
+          <div class="wifi-status">
+            <span class="wifi-dot"></span>
+            <span class="wifi-label">Online</span>
+          </div>
+        </div>
+
+        <!-- Center Time -->
+        <div class="clock-container">
+          <div class="time-digits">
+            <span class="hour">21</span><span class="colon">:</span><span class="minute">38</span>
+            <span class="seconds-pill">42</span>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="screen-divider"></div>
+
+        <!-- Weather Section -->
+        <div class="weather-container">
+          <div class="weather-primary">
+            <div class="weather-left">
+              <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="4.5" fill="#f59e0b" fill-opacity="0.25"></circle>
+                <path d="M12 2v2"></path>
+                <path d="M12 20v2"></path>
+                <path d="M4.93 4.93l1.41 1.41"></path>
+                <path d="M17.66 17.66l1.41 1.41"></path>
+                <path d="M2 12h2"></path>
+                <path d="M20 12h2"></path>
+                <path d="M6.34 17.66l-1.41 1.41"></path>
+                <path d="M19.07 4.93l-1.41 1.41"></path>
+              </svg>
+              <div class="temp-display">28<span class="temp-unit">°C</span></div>
+            </div>
+            <div class="weather-condition">
+              <div class="condition-text">Clear Sky</div>
+              <div class="location-text">Dhaka</div>
+            </div>
+          </div>
+          <div class="weather-metrics">
+            <div class="metric-item">HUM <span>64%</span></div>
+            <div class="metric-item">WIND <span>2.4m/s</span></div>
+            <div class="metric-item">HIGH <span>31°</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="meta-tag">SmallTV-Ultra · Minimalist Editorial Clock Face (240 × 240 ST7789 IPS)</div>
+  </div>
+</body>
+</html>

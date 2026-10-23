@@ -13,17 +13,35 @@ export function createInitialState() {
       mac: "48:55:19:D4:2B:6A",
     },
     display: {
-      theme: "Weather Clock Today",
+      theme: "Weather & Prayer Station",
       brightness: 65,
       autoSwitch: false,
       switchInterval: 30,
-      activeThemes: ["Weather Clock Today", "Weather Forecast", "Simple Weather Clock"],
+      activeThemes: ["Weather & Prayer Station", "Editorial Weather Clock", "Minimalist Clean Clock"],
       nightMode: {
         enabled: true,
         startTime: "22:00",
         endTime: "07:00",
         brightness: 20,
       },
+    },
+    prayer: {
+      enabled: true,
+      city: "Dhaka",
+      country: "Bangladesh",
+      latitude: 23.8103,
+      longitude: 90.4125,
+      method: "1", // University of Islamic Sciences, Karachi
+      asrMethod: "Hanafi",
+      timings: {
+        fajr: "04:43",
+        sunrise: "05:59",
+        dhuhr: "11:43",
+        asr: "15:01",
+        maghrib: "17:27",
+        isha: "18:43",
+      },
+      nextWaqt: "Isha",
     },
     weather: {
       city: "Dhaka",
@@ -39,8 +57,8 @@ export function createInitialState() {
       mode: "Auto",
       timezone: "Asia/Dhaka (UTC+6:00)",
       utcOffset: "UTC+6:00",
-      hourFormat: "24-Hour",
-      dateFormat: "DD/MM/YYYY",
+      hourFormat: "12-Hour",
+      dateFormat: "DD MMM . Day",
       colonBlink: true,
       fontStyle: "Default Big Font",
       ntp: "pool.ntp.org",
@@ -125,11 +143,15 @@ export function reduce(state, action) {
   }
 
   if (action.type === "set-time-field") {
+    let val = action.value;
+    if (action.field === "colonBlink") {
+      val = val === "true" || val === true;
+    }
     return {
       ...state,
       time: {
         ...state.time,
-        [action.field]: action.value,
+        [action.field]: val,
       },
     };
   }
@@ -152,6 +174,16 @@ export function reduce(state, action) {
       ...state,
       weather: {
         ...state.weather,
+        [action.field]: action.value,
+      },
+    };
+  }
+
+  if (action.type === "set-prayer-field") {
+    return {
+      ...state,
+      prayer: {
+        ...state.prayer,
         [action.field]: action.value,
       },
     };

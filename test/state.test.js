@@ -44,14 +44,13 @@ test("display page exposes labelled local-only controls", () => {
   assert.match(markup, /id="auto-switch"/);
 });
 
-test("system page keeps reset and reboot unavailable in the prototype", () => {
+test("system page exposes live firmware upload form and reboot controls", () => {
   const state = reduce(createInitialState(), { type: "navigate", page: "system" });
   const markup = renderDashboard(state);
 
-  assert.match(markup, /Sample data only/);
-  assert.match(markup, /Reset unavailable in prototype/);
-  assert.match(markup, /Reboot unavailable in prototype/);
-  assert.match(markup, /disabled/);
+  assert.match(markup, /action="\/update"/);
+  assert.match(markup, /name="firmware"/);
+  assert.match(markup, /Reboot Device/);
 });
 
 test("selecting a theme updates display theme", () => {

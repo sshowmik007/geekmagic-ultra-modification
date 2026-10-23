@@ -44,7 +44,7 @@ ${apiJs.replace(/export\s+/g, "")}
 // --- Main Module ---
 ${mainJs
   .replace(/import\s+[^;]+;\s*/g, "")
-  .replace(/export\s+function\s+renderDashboard/g, "function renderDashboard")}
+  .replace(/export\s+/g, "")}
   `.trim();
 
   // Inline JS
@@ -89,10 +89,12 @@ const uint8_t DASHBOARD_HTML_GZ[] PROGMEM = {
 //   serveDashboard(server);
 template <typename ServerType>
 void serveDashboard(ServerType &server) {
-  server.on("/", HTTP_GET, [&server]() {
+  auto handler = [&server]() {
     server.sendHeader("Content-Encoding", "gzip");
     server.send_P(200, "text/html", (PGM_P)DASHBOARD_HTML_GZ, DASHBOARD_HTML_GZ_LEN);
-  });
+  };
+  server.on("/", HTTP_GET, handler);
+  server.on("/index.html", HTTP_GET, handler);
 }
 
 #endif // WEB_ASSETS_H

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SmallTV Weather Station & Clock (240x240 Reference Match)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #121316;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist Sans", "Segoe UI", Roboto, sans-serif;
+      color: #ffffff;
+      padding: 24px;
+    }
+    .preview-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .device-bezel {
+      width: 290px;
+      height: 290px;
+      background: #1f2024;
+      border-radius: 24px;
+      padding: 25px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 2px rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .device-bezel::after {
+      content: "GEEKMAGIC SMALLTV-ULTRA";
+      position: absolute;
+      bottom: 8px;
+      font-size: 7.5px;
+      letter-spacing: 1.5px;
+      color: #636674;
+      font-weight: 700;
+    }
+    /* Exact 240x240 ST7789 IPS Physical Screen */
+    .screen-canvas {
+      width: 240px;
+      height: 240px;
+      background-color: #0b0c0e;
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px 10px;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.9);
+      justify-content: space-between;
+    }
+
+    /* 1. Header: City Location */
+    .header-city {
+      text-align: center;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+      line-height: 1.1;
+      padding-top: 2px;
+    }
+
+    /* 2. Top Section: Weather Hero (Left) + Time/Date (Right) */
+    .hero-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+    .hero-weather-icon {
+      width: 76px;
+      height: 64px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hero-time-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.1;
+    }
+    .time-digits {
+      font-size: 32px;
+      font-weight: 800;
+      color: #f59e0b; /* Golden Yellow */
+      letter-spacing: -0.03em;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+    }
+    .date-str {
+      font-size: 15px;
+      font-weight: 600;
+      color: #38bdf8; /* Cyan */
+      margin-top: 2px;
+    }
+    .day-str {
+      font-size: 14px;
+      font-weight: 500;
+      color: #cbd5e1; /* Off-white / light slate */
+    }
+
+    /* 3. Middle: Weather Condition Banner */
+    .condition-banner {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: #f8fafc;
+      letter-spacing: 0.01em;
+      margin: 2px 0 6px;
+    }
+
+    /* 4. Bottom 2x2 Telemetry Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-gap: 8px 10px;
+      padding: 4px 2px 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .telemetry-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .item-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .item-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+    .item-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .item-val {
+      font-size: 12.5px;
+      font-weight: 700;
+      font-feature-settings: "tnum";
+    }
+
+    /* Specific Item Color Themes matching user reference */
+    .item-temp .item-label { color: #f97316; }   /* Orange */
+    .item-temp .item-val   { color: #fde047; }   /* Warm Yellow */
+    
+    .item-hum .item-label  { color: #38bdf8; }   /* Cyan */
+    .item-hum .item-val    { color: #7dd3fc; }   /* Soft Cyan */
+
+    .item-wind .item-label { color: #c084fc; }   /* Light Magenta / Purple */
+    .item-wind .item-val   { color: #e9d5ff; }   /* Pale Purple */
+
+    .item-sun .item-label  { color: #fb923c; }   /* Warm Orange */
+    .item-sun .item-val    { color: #fef08a; }   /* Pale Gold */
+
+    .caption {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-card">
+    <div class="device-bezel">
+      <div class="screen-canvas">
+        
+        <!-- 1. City Location -->
+        <div class="header-city">London</div>
+
+        <!-- 2. Hero Weather Icon + Live Time & Date -->
+        <div class="hero-row">
+          <!-- Weather Graphic: Sun + Cloud (Broken Clouds) -->
+          <div class="hero-weather-icon">
+            <svg viewBox="0 0 76 64" width="76" height="64" fill="none">
+              <!-- Radiant Sun -->
+              <circle cx="28" cy="24" r="14" fill="#f59e0b"/>
+              <!-- Sun Rays -->
+              <g stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round">
+                <line x1="28" y1="4" x2="28" y2="7"/>
+                <line x1="28" y1="41" x2="28" y2="44"/>
+                <line x1="14" y1="24" x2="11" y2="24"/>
+                <line x1="45" y1="24" x2="42" y2="24"/>
+                <line x1="18.1" y1="14.1" x2="16" y2="12"/>
+                <line x1="39.9" y1="35.9" x2="37.8" y2="33.8"/>
+                <line x1="18.1" y1="33.8" x2="16" y2="35.9"/>
+                <line x1="39.9" y1="12" x2="37.8" y2="14.1"/>
+              </g>
+              <!-- Stylized Cloud overlapping front of sun -->
+              <path d="M22 48h36a12 12 0 0 0 2-23.8 17 17 0 0 0-31-4 13 13 0 0 0-7 27.8z" fill="#bae6fd" opacity="0.95"/>
+              <path d="M20 48h38a10 10 0 0 0 0-20c-.5 0-1 .05-1.5.15A14 14 0 0 0 29 20a13.9 13.9 0 0 0-11 5.4A11 11 0 0 0 20 48z" fill="#e0f2fe"/>
+            </svg>
+          </div>
+
+          <!-- Time, Date, Day -->
+          <div class="hero-time-col">
+            <div class="time-digits">14:51</div>
+            <div class="date-str">30 Jul</div>
+            <div class="day-str">Thu</div>
+          </div>
+        </div>
+
+        <!-- 3. Weather Condition Description -->
+        <div class="condition-banner">Broken clouds</div>
+
+        <!-- 4. 2x2 Telemetry Grid (Temp, Humidity, Wind, Sunset) -->
+        <div class="telemetry-grid">
+          
+          <!-- Item 1: Temperature -->
+          <div class="telemetry-item item-temp">
+            <div class="item-icon">
+              <!-- Thermometer SVG -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" fill="#ea580c" fill-opacity="0.3"></path>
+                <circle cx="11.5" cy="17.5" r="2.5" fill="#f97316"></circle>
+                <line x1="11.5" y1="9" x2="11.5" y2="15" stroke="#f97316" stroke-width="2"></line>
+              </svg>
+            </div>
+            <div class="item-text">
+              <span class="item-label">Temperature</span>
+              <span class="item-val">27°C</span>
+            </div>
+          </div>
+
+          <!-- Item 2: Humidity -->
+          <div class="telemetry-item item-hum">
+            <div class="item-icon">
+              <!-- Humidity Drops SVG -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0284c7" fill-opacity="0.3"></path>
+                <circle cx="9" cy="15" r="1.5" fill="#38bdf8"></circle>
+                <circle cx="15" cy="15" r="1.5" fill="#38bdf8"></circle>
+              </svg>
+            </div>
+            <div class="item-text">
+              <span class="item-label">Humidity</span>
+              <span class="item-val">50%</span>
+            </div>
+          </div>
+
+          <!-- Item 3: Wind -->
+          <div class="telemetry-item item-wind">
+            <div class="item-icon">
+              <!-- Windsock SVG -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 21V3"></path>
+                <path d="M4 4h14l-2 5 2 5H4" fill="#9333ea" fill-opacity="0.25"></path>
+                <line x1="9" y1="4" x2="8" y2="14"></line>
+                <line x1="14" y1="4" x2="13" y2="14"></line>
+              </svg>
+            </div>
+            <div class="item-text">
+              <span class="item-label">Wind</span>
+              <span class="item-val">2.7 m/s S</span>
+            </div>
+          </div>
+
+          <!-- Item 4: Sunset -->
+          <div class="telemetry-item item-sun">
+            <div class="item-icon">
+              <!-- Sunset SVG -->
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 18a5 5 0 0 0-10 0" fill="#f97316" fill-opacity="0.3"></path>
+                <line x1="12" y1="9" x2="12" y2="2"></line>
+                <line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line>
+                <line x1="1" y1="18" x2="23" y2="18"></line>
+                <polyline points="9 5 12 2 15 5"></polyline>
+              </svg>
+            </div>
+            <div class="item-text">
+              <span class="item-label">Sunset</span>
+              <span class="item-val">20:52</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+    <div class="caption">SmallTV-Ultra · Exact Reference Weather Station Layout (240×240 IPS)</div>
+  </div>
+</body>
+</html>
+

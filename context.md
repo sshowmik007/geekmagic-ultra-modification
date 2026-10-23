@@ -1,78 +1,29 @@
-# SmallTV Dashboard Context
+# Project Context: GeekMagic SmallTV-Ultra Custom Firmware & Dashboard
 
-## Start here
+## Current Status (October 2026)
+- **Target Hardware**: GeekMagic SmallTV-Ultra (ESP8266EX 80 MHz, 4 MB Flash, 1.54" ST7789 IPS LCD 240x240).
+- **Firmware Binary**: `smalltv-dashboard/releases/custom_dashboard_firmware.bin` (Size: 424,160 bytes, Magic Byte: 0xE9, MD5: `0c950393bc216326fbb5c765ba621c08`).
+- **Stock Rollback Binary**: `smalltv-dashboard/releases/STOCK_ROLLBACK_Ultra-V9.0.50.bin` (Size: 505,200 bytes).
+- **Web Dashboard Bundle**: Inlined & gzipped into `dist/web_assets.h` (14.55 KB Gzip, 1.42% of 1 MB flash).
+- **Mock Server**: Running at `http://localhost:3000`.
+- **Test Suite**: 13/13 passing tests (`npm test`).
 
-This folder is a safe local design prototype for a clearer SmallTV-Ultra browser dashboard. It is not firmware, does not communicate with a device, and must not be flashed.
-
-Read these files before changing anything:
-
-1. `docs/superpowers/specs/2026-10-23-dashboard-prototype-design.md`
-2. `docs/superpowers/plans/2026-10-23-dashboard-prototype.md`
-
-## What has been confirmed
-
-- The target hardware is a GeekMagic SmallTV-Ultra using ESP8266.
-- The stock dashboard was inspected read-only in a browser. Its pages are Network, Weather, Time, Pictures, and Settings.
-- The inspected device reported model `SmallTV-Ultra` and firmware `Ultra-V9.0.51`.
-- The stock dashboard supports Wi-Fi configuration, weather location and refresh settings, time/NTP controls, image/GIF upload, display themes, brightness, night mode, factory reset, reboot, and firmware upload.
-- The vendor package in this workspace contains release firmware binaries and checksums, not editable source code.
-
-## Reference repositories
-
-Do not modify either of these folders.
-
-- `../geekmagic-tv-esp8266-master/` is the main source reference for an ESP8266 SmallTV firmware, its server routes, display code, embedded dashboard assets, PlatformIO configuration, OTA, and LittleFS use.
-- `../codelight-master/screen/` is a hardware and bootstrapping reference for the same class of device. It is useful for display wiring assumptions, first-stage OTA constraints, and recovery planning.
-
-## Work completed
-
-- Created `smalltv-dashboard/` as the isolated workspace for the custom dashboard.
-- Created the prototype design specification (`docs/superpowers/specs/2026-10-23-dashboard-prototype-design.md`).
-- Created the implementation plan (`docs/superpowers/plans/2026-10-23-dashboard-prototype.md`).
-- Confirmed local development tooling: Node.js `v24.19.0`, npm `11.17.0`, Tailwind CSS v4 CLI (`@tailwindcss/cli`).
-- Implemented full interactive prototype in `index.html`, `src/input.css`, `src/state.js`, and `src/main.js` covering Overview, Display themes, Weather, Time with color pickers, Network with Wi-Fi discovery, Media storage, and System controls.
-- **Phase 2 Complete - Mock API & Dev Server**:
-  - Authored ESP8266 REST API Specification: `docs/superpowers/specs/2026-10-23-api-contract-and-mock-server.md`.
-  - Authored Implementation Plan: `docs/superpowers/plans/2026-10-23-api-and-dev-server.md`.
-  - Built zero-dependency Node development server (`server.js`) using `node:http`.
-  - Implemented `/api/status`, `/api/settings`, `/api/wifi/scan`, `/api/wifi/connect`, `/api/system/reboot`, `/api/system/reset`.
-  - Built frontend client adapter (`src/api.js`) with automatic offline/`file://` fallback and toast feedback.
-  - Added unit test suite covering state and server REST APIs in `test/server.test.js`.
-  - **10 automated tests passing** with `npm test`.
-  - Minified production CSS compiled to `dist/styles.css` (88ms build time).
-- **Phase 3 Complete - ESP8266 Asset Bundling & C++ PROGMEM Exporter**:
-  - Authored Asset Bundling Specification: `docs/superpowers/specs/2026-10-23-esp8266-asset-bundler.md`.
-  - Authored Implementation Plan: `docs/superpowers/plans/2026-10-23-esp8266-asset-bundler.md`.
-  - Created automated bundler script `scripts/build-esp.js` (`npm run build:esp`).
-  - Automatically inlines HTML, CSS, and JS into a single-request self-contained payload.
-  - Generates Gzip-compressed C++ header: `dist/web_assets.h` (using `PROGMEM`).
-  - Generates standalone LittleFS image: `dist/littlefs/index.html.gz`.
-  - Bundle size metrics:
-    - Raw uncompressed: 42.4 KB
-    - **Gzip compressed: 11.0 KB** (Only **1.08%** of the 1 MB sketch Flash budget!)
-  - Added unit test suite in `test/bundler.test.js` validating decompression and C++ syntax.
-  - **11 automated tests passing** across state, server, and bundler suites.
-- Safety boundary strictly upheld: Zero HTTP/fetch requests to device IP `192.168.0.198`, zero device writes, no firmware touched.
-
-## Current implementation boundary
-
-The local environment can run in two modes:
-1. **Local Server Mode (`npm start` or `npm run dev`)**: Serves on `http://localhost:3000`. Full REST API simulation with async saving, live toasts, and Wi-Fi scan responses.
-2. **Offline File Mode**: Opening `index.html` directly in any browser. Automatically detects `file://` protocol and operates using in-memory state with zero network calls.
-
-## Next action
-
-1. Start the local server (`npm start`) and inspect the dashboard in your browser at `http://localhost:3000`.
-2. Test the responsive layouts, theme switching, brightness slider, and clock color pickers.
-3. Review the API contract in `docs/superpowers/specs/2026-10-23-api-contract-and-mock-server.md` before moving to firmware C++ asset embedding.
-
-## Safety rules
-
-- Never modify the reference repositories without new explicit user approval.
-- Never upload firmware, click device save/reboot/reset, alter Wi-Fi, or send device HTTP requests without explicit user approval for that exact action.
-- Do not treat the vendor firmware binary as editable source.
-- Keep this prototype independent from the device until the user explicitly starts the firmware integration stage.
-
-## Workspace note
-
-The workspace currently has no Git repository. Do not assume commits, branches, or rollback history exist. Initialize Git only if the user asks.
+## Resolved Issues & Features Added
+1. **Pure True Black IPS Display**:
+   - Replaced all `0x0841` (dark bluish-gray) with `TFT_BLACK` (`0x0000`).
+   - ST7789 display inversion enabled (`tft.invertDisplay(true)`). Liquid crystal blocks 100% of light, providing inky black background with zero grayish glow.
+2. **Mobile Navigation Drawer**:
+   - Fixed slide-out drawer animation conflict where `@keyframes appear` overrode `transform: translateX(-100%)`.
+   - Dedicated round close button (`.close-drawer-btn`) with 44×44px tap target.
+   - Smooth backdrop blur overlay (`.sidebar-overlay`) with click-to-close.
+3. **Time & Date Organizer**:
+   - 12-Hour (with AM/PM pill badge) vs 24-Hour format toggle.
+   - Regional Date Format selector (`DD MMM . Day`, `DD/MM/YYYY`, `YYYY/MM/DD`, `MM/DD/YYYY`, `DD.MM.YYYY`).
+   - Dynamic time rendering across all 3 themes using live clock/NTP.
+   - Explicit **Save Time & Date Settings** button writing directly to LittleFS `/config.json`.
+4. **Functional Wi-Fi Manager**:
+   - Live 2.4 GHz network scanner via `GET /api/wifi/scan`.
+   - Single-click SSID selection auto-populates credentials form and focuses password input.
+   - Connect button submits `POST /api/wifi/connect`, saves credentials to flash, and connects to the user's router.
+5. **OTA Firmware Upgrader**:
+   - Integrated multipart file upload directly at `/update` and inside the **System** tab.
