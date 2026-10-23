@@ -40,6 +40,18 @@ Do not modify either of these folders.
   - Added unit test suite covering state and server REST APIs in `test/server.test.js`.
   - **10 automated tests passing** with `npm test`.
   - Minified production CSS compiled to `dist/styles.css` (88ms build time).
+- **Phase 3 Complete - ESP8266 Asset Bundling & C++ PROGMEM Exporter**:
+  - Authored Asset Bundling Specification: `docs/superpowers/specs/2026-10-23-esp8266-asset-bundler.md`.
+  - Authored Implementation Plan: `docs/superpowers/plans/2026-10-23-esp8266-asset-bundler.md`.
+  - Created automated bundler script `scripts/build-esp.js` (`npm run build:esp`).
+  - Automatically inlines HTML, CSS, and JS into a single-request self-contained payload.
+  - Generates Gzip-compressed C++ header: `dist/web_assets.h` (using `PROGMEM`).
+  - Generates standalone LittleFS image: `dist/littlefs/index.html.gz`.
+  - Bundle size metrics:
+    - Raw uncompressed: 42.4 KB
+    - **Gzip compressed: 11.0 KB** (Only **1.08%** of the 1 MB sketch Flash budget!)
+  - Added unit test suite in `test/bundler.test.js` validating decompression and C++ syntax.
+  - **11 automated tests passing** across state, server, and bundler suites.
 - Safety boundary strictly upheld: Zero HTTP/fetch requests to device IP `192.168.0.198`, zero device writes, no firmware touched.
 
 ## Current implementation boundary
