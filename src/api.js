@@ -1,0 +1,75 @@
+// API adapter with graceful fallback to offline/memory mode when opened as file://
+
+const isBrowser = typeof window !== "undefined";
+const isHttp = isBrowser && (window.location.protocol === "http:" || window.location.protocol === "https:");
+
+export const api = {
+  isLiveServer: isHttp,
+
+  async getStatus() {
+    if (!isHttp) return null;
+    try {
+      const res = await fetch("/api/status");
+      if (!res.ok) throw new Error("Status fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.warn("[SmallTV API] Using local mock status:", e.message);
+      return null;
+    }
+  },
+
+  async getSettings() {
+    if (!isHttp) return null;
+    try {
+      const res = await fetch("/api/settings");
+      if (!res.ok) throw new Error("Settings fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.warn("[SmallTV API] Using local mock settings:", e.message);
+      return null;
+    }
+  },
+
+  async saveSettings(settings) {
+    if (!isHttp) {
+      return { success: true, message: "Saved to in-memory state (Offline mode)" };
+    }
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async scanWifi() {
+    if (!isHttp) return null;
+    try {
+      const res = await fetch("/api/wifi/scan");
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async connectWifi(ssid, password, bootDelay) {
+    if (!isHttp) {
+      return { success: true, message: `Connected to ${ssid} (Offline mode)` };
+    }
+    try {
+      const res = await fetch("/api/wifi/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ssid, password, bootDelay }),
+      });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+};
+
