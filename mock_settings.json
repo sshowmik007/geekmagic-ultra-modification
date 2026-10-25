@@ -8,7 +8,8 @@
       "Weather & Prayer Station",
       "Minimalist Clean Clock",
       "AI Token & Rate Monitor",
-      "Editorial Weather Clock"
+      "Editorial Weather Clock",
+      "Analog Calendar Clock"
     ],
     "nightMode": {
       "enabled": true,
@@ -19,29 +20,26 @@
   },
   "tokens": {
     "provider": "Gemini",
-    "status": "active",
-    "agentState": "WORKING",
-    "sessionTokens": 114339,
+    "model": "3.8 FLASH",
+    "sessionLabel": "CONTEXT WINDOW",
+    "sessionTokens": 235620,
     "sessionLimit": 1048576,
-    "sessionReset": "2h 58m",
-    "weeklyTokens": 727597,
-    "weeklyLimit": null,
-    "weeklyReset": "5d 03h",
-    "tokensPerSec": 0,
-    "lastSync": "Just now",
+    "sessionPct": 78,
+    "sessionText": "78% Left (236k/1M)",
+    "sessionReset": "1M Limit",
+    "weeklyLabel": "5-HOUR USAGE",
+    "weeklyTokens": 41004474,
+    "weeklyLimit": 50000000,
+    "weeklyPct": 82,
+    "weeklyText": "41.0M used (5h)",
+    "weeklyReset": "Rolling 5h",
+    "agentState": "WORKING",
     "isLaptopOnline": true,
-    "model": "Gemini 3.8 Flash",
-    "sessionPct": 63,
-    "weeklyPct": 62,
-    "sessionLabel": "5-HOUR LIMIT",
-    "sessionText": "63% Remaining",
-    "weeklyLabel": "WEEKLY LIMIT",
-    "weeklyText": "62% Remaining",
     "telemetryState": "live",
-    "sourceLabel": "Antigravity transcript",
+    "sourceLabel": "Antigravity live transcript",
     "observedAt": null,
-    "sessionWindowMinutes": null,
-    "weeklyWindowMinutes": null
+    "sessionWindowMinutes": 300,
+    "weeklyWindowMinutes": 10080
   },
   "weather": {
     "city": "Dhaka",
@@ -66,7 +64,8 @@
       "hour": "#ffffff",
       "minute": "#feba01",
       "second": "#ffffff"
-    }
+    },
+    "clockStyle": "digital"
   },
   "network": {
     "ssid": "NewNetwork",

@@ -92,5 +92,48 @@ export const api = {
       return { success: false, error: e.message };
     }
   },
+
+  async uploadMedia(rgb565Bytes, filename = "photo.raw") {
+    if (!isHttp) {
+      return { success: true, message: "Photo saved to local browser cache (Offline mode)" };
+    }
+    try {
+      const blob = new Blob([rgb565Bytes], { type: "application/octet-stream" });
+      const formData = new FormData();
+      formData.append("photo", blob, filename);
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteMedia(filename = "photo.raw") {
+    if (!isHttp) return { success: true, message: "Photo removed (Offline mode)" };
+    try {
+      const res = await fetch("/api/media/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: filename }),
+      });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async reboot() {
+    if (!isHttp) return { success: true, message: "Reboot triggered (Offline mode)" };
+    try {
+      const res = await fetch("/api/system/reboot", { method: "POST" });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
 };
 

@@ -32,23 +32,6 @@ DEFAULT_CONFIG = {
     "claude_home_dir": os.path.expanduser(r"~/.claude"),
 }
 
-MODEL_CONTEXT_WINDOWS = {
-    "gemini-3.8-flash": 1048576,
-    "gemini-3.8-pro": 2097152,
-    "gemini-3.0-ultra": 2097152,
-    "gemini-2.5-flash": 1048576,
-    "gpt-5.6-terra": 258400,
-    "o3-mini": 200000,
-    "o1": 200000,
-    "o1-preview": 128000,
-    "gpt-4.1-turbo": 128000,
-    "claude-3-7-sonnet": 200000,
-    "claude-3-5-sonnet": 200000,
-    "claude-3-5-haiku": 200000,
-    "deepseek-r1": 128000,
-    "qwen-2.5-coder-32b": 128000,
-}
-
 _PLUGIN_EVENTS = {}
 _PLUGIN_EVENTS_LOCK = threading.Lock()
 
@@ -231,7 +214,7 @@ def window_label(window_minutes, fallback="RATE LIMIT"):
     return f"{window_minutes}-MIN LIMIT"
 
 def get_gemini_telemetry(cfg):
-    """Extract live token telemetry from Antigravity/Gemini session logs and rate limits."""
+    """Extract real-time live token telemetry from Antigravity/Gemini session logs."""
     brain_dir = cfg.get("gemini_brain_dir")
     if not brain_dir or not os.path.exists(brain_dir):
         return None
@@ -252,75 +235,58 @@ def get_gemini_telemetry(cfg):
         if not lines:
             return None
 
-        # Extract active turn tokens (latest MODEL step)
         turn_tokens = 0
-        total_tokens = 0
-        for l in reversed(lines[-25:]):
-            try:
-                rec = json.loads(l)
-                if rec.get("source") == "MODEL" and "input_tokens" in rec:
-                    turn_tokens = (
-                        rec.get("input_tokens", 0) +
-                        rec.get("cache_read_tokens", 0) +
-                        rec.get("output_tokens", 0)
-                    )
-                    break
-            except Exception:
-                pass
+        total_session_tokens = 0
 
         for l in lines:
             try:
                 rec = json.loads(l)
-                if "output_tokens" in rec:
-                    total_tokens += rec.get("output_tokens", 0)
+                if rec.get("source") == "MODEL":
+                    inp = rec.get("input_tokens", 0)
+                    cache = rec.get("cache_read_tokens", 0)
+                    out = rec.get("output_tokens", 0)
+                    turn_tokens = inp + cache + out
+                    total_session_tokens += out
             except Exception:
                 pass
 
-        model_name = cfg.get("gemini_model") or "Gemini 3.8 Flash"
-        context_limit = int(cfg.get("gemini_context_window") or 1048576)
+        model_name = cfg.get("gemini_model") or "Gemini"
 
-        session_pct = cfg.get("gemini_session_pct")
-        if session_pct is None:
-            session_pct = 63
-        else:
-            try:
-                session_pct = max(0, min(100, int(session_pct)))
-            except (ValueError, TypeError):
-                session_pct = 63
+        # Format compact human-readable token text
+        def format_compact(val):
+            c = float(val or 0)
+            if c >= 1000000:
+                return f"{c / 1000000.0:.1f}M"
+            if c >= 1000:
+                return f"{c / 1000.0:.1f}k"
+            return f"{int(c)}"
 
-        weekly_pct = cfg.get("gemini_weekly_pct")
-        if weekly_pct is None:
-            weekly_pct = 62
-        else:
-            try:
-                weekly_pct = max(0, min(100, int(weekly_pct)))
-            except (ValueError, TypeError):
-                weekly_pct = 62
-
-        session_reset = cfg.get("gemini_session_reset") or "2h 58m"
-        weekly_reset = cfg.get("gemini_weekly_reset") or "5d 03h"
+        session_text = f"{format_compact(turn_tokens)} used" if turn_tokens > 0 else "0 tok"
+        weekly_text = f"{format_compact(total_session_tokens)} total" if total_session_tokens > 0 else "0 tok"
 
         return {
             "provider": "Gemini",
             "model": model_name,
             "mtime": mtime,
             "agentState": "WORKING" if is_working else "IDLE",
-            "sessionLabel": "5-HOUR LIMIT",
-            "sessionPct": session_pct,
-            "sessionText": f"{session_pct}% Remaining",
-            "sessionReset": session_reset,
-            "weeklyLabel": "WEEKLY LIMIT",
-            "weeklyPct": weekly_pct,
-            "weeklyText": f"{weekly_pct}% Remaining",
-            "weeklyReset": weekly_reset,
+            "sessionLabel": "TOKENS USED",
+            "sessionPct": None,
+            "sessionText": session_text,
+            "sessionReset": "--",
+            "weeklyLabel": "SESSION TOTAL",
+            "weeklyPct": None,
+            "weeklyText": weekly_text,
+            "weeklyReset": "--",
             "sessionTokens": turn_tokens,
-            "sessionLimit": context_limit,
-            "weeklyTokens": total_tokens,
-            "weeklyLimit": cfg.get("gemini_weekly_limit") or 1000000,
+            "sessionLimit": None,
+            "weeklyTokens": total_session_tokens,
+            "weeklyLimit": None,
             "source": f"Antigravity transcript ({os.path.basename(conv_dir)[:8]}...)",
-            "sourceLabel": "Antigravity transcript",
-            "sessionWindowMinutes": 300,
-            "weeklyWindowMinutes": 10080,
+            "sourceLabel": "Antigravity live transcript",
+            "sessionWindowMinutes": None,
+            "weeklyWindowMinutes": None,
+            "isLaptopOnline": True,
+            "telemetryState": "live",
         }
     except Exception as e:
         return None
@@ -361,14 +327,7 @@ def get_codex_telemetry(cfg):
                 rec = json.loads(l)
                 if not found_model and rec.get("type") == "turn_context" and "model" in rec.get("payload", {}):
                     raw_model = rec["payload"]["model"]
-                    if "terra" in raw_model.lower():
-                        model_name = "GPT-5.6-Terra"
-                    elif "o3" in raw_model.lower():
-                        model_name = "o3-mini"
-                    elif "o1" in raw_model.lower():
-                        model_name = "o1-preview"
-                    else:
-                        model_name = raw_model.upper()
+                    model_name = raw_model.strip()
                     found_model = True
 
                 if not found_usage and rec.get("type") == "event_msg" and rec.get("payload", {}).get("type") == "token_count":

@@ -1,13 +1,30 @@
 # Project Context: GeekMagic SmallTV-Ultra Custom Firmware & Dashboard
 
-## Current Status (October 2026 - V9.0.59)
+## Current Status (October 2026 - V9.0.66)
 - **Target Hardware**: GeekMagic SmallTV-Ultra (ESP8266EX 80 MHz, 4 MB Flash, 1.54" ST7789 IPS LCD 240×240, active-low PWM backlight on GPIO 5).
-- **Firmware Binary**: `smalltv-dashboard/releases/custom_dashboard_firmware_v9.0.59.bin` and `releases/custom_dashboard_firmware.bin` (571,728 bytes, MD5 `b1c60f353648c6bd23f3ee2bf5adc4cb`).
+- **Firmware Binary**: `smalltv-dashboard/releases/custom_dashboard_firmware_v9.0.66.bin` and `releases/custom_dashboard_firmware.bin` (588,944 bytes, MD5 `b1a17bec2593835d74f8fc61475a0154`).
 - **Factory Rollback Binary**: `smalltv-dashboard/releases/STOCK_ROLLBACK_Ultra-V9.0.50.bin` (Size: 505,200 bytes).
 - **Build & Environment Guide**: [`smalltv-dashboard/docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md).
-- **Web Dashboard Bundle**: Inlined & gzipped into `dist/web_assets.h` (27.30 KB Gzip, 2.67% of 1 MB flash).
-- **Mock Server**: Running at `http://localhost:3000` with live `/api/tokens` REST endpoints.
-- **Build Verification**: PlatformIO build succeeded; binary validator confirmed the ESP8266 header and 54.5% OTA partition usage. All 14 Node tests and the Codex companion regression test passed.
+- **Web Dashboard Bundle**: Inlined & gzipped into `dist/web_assets.h` (33.43 KB Gzip, 3.26% of 1 MB flash).
+- **Mock Server**: Running with media upload and `/api/tokens` REST endpoints.
+- **Build Verification**: PlatformIO build succeeded; binary validator confirmed the ESP8266 header and 56.2% OTA partition usage. All 14 Node tests passed.
+
+### Version 9.0.66 Media & Photo Frame Theme (October 25, 2026 — built & validated)
+- **Interactive Image Uploader & Canvas Auto-Scaler on `#media`**:
+  - Replaced prototype placeholder with a fully interactive Drag-and-Drop and File Picker zone.
+  - Client-side HTML5 Canvas automatically centers, crops, and optimizes any input image (JPG, PNG, WebP, GIF) to the native 240×240 pixel resolution of the ST7789 display.
+  - Automatically compiles 16-bit RGB565 binary payload (115,200 bytes) and streams to the ESP8266 `/api/media/upload` endpoint directly into LittleFS (`/photo.raw`).
+- **New 6th Theme: "Photo Frame & Ambient Album"**:
+  - Added Theme 6 to `allThemes[]` in `main.cpp` and web dashboard theme lists.
+  - Renders custom uploaded photos in 16-bit True Color directly to the 240×240 display with zero decode lag via line-buffered DMA streaming.
+  - Overlays a minimalist translucent dark time pill in the corner (`10:55 PM`) so the unit serves as both a digital photo frame and a desk clock.
+  - Elegant retro polaroid fallback display when no photo is uploaded yet with direct IP and upload instructions.
+- **Media REST API Endpoints**:
+  - `POST /api/media/upload`: Streams uploaded photo chunks into LittleFS `/photo.raw`.
+  - `POST /api/media/delete`: Deletes `/photo.raw` from LittleFS.
+  - `GET /api/media/status`: Reports photo presence, file size, and active theme.
+- **Pre-flash Binary Safety**:
+  - Validated: `custom_dashboard_firmware_v9.0.66.bin` (588,944 bytes, MD5 `b1a17bec2593835d74f8fc61475a0154`, 56.2% OTA partition usage). Safe for flashing.
 
 ### Version 9.0.65 UI & Model Parity Update (October 25, 2026 — built & validated)
 - **Physical ST7789 Display & Web UI Parity**:
@@ -109,3 +126,7 @@
 - Hardened the public Docker defaults: no provider-session mounts by default, mandatory generated bridge token, non-root/read-only container, dropped capabilities, and explicit `docker-compose.local-files.yml` opt-in for the existing local transcript scans. Added `companion/setup_windows.ps1` for one-command setup.
 - Built `Ultra-V9.0.64-Custom`: Theme 4 now shows verified Gemini/Codex token usage counts (`TOKENS USED` / `SESSION TOTAL`) when quota percentages are unavailable, while keeping unknown quotas as `--`. OTA is required for the physical display to receive this UI change.
 - Fixed stale telemetry retention: when the collector reports an unavailable source, firmware now clears prior session/weekly token counts, limits, and observation time instead of exposing old values alongside `UNAVAILABLE`. This is packaged for the next firmware build.
+- Added `Analog Calendar Clock` as the seventh display theme in the web dashboard and firmware. It renders a live analogue clock plus Bengali, Hijri, and English calendar lines; the Time page now has a Digital/Analogue preview selector. Web calendar text uses browser locale support, while the ESP8266 uses compact ASCII calendar labels because the bundled TFT fonts do not contain Bengali or Arabic glyphs.
+- Built `releases/custom_dashboard_firmware_v9.0.66.bin` after the analog theme change. Binary validation passed: 592112 bytes, 56.5% OTA partition usage, MD5 `3f4864a9ba950fcaa3cf207e7aac8eb5`. It has not been flashed.
+- Fixed minute-change display flashing: ESP timed updates now redraw existing theme regions without `fillScreen()`; the analogue clock no longer clears the panel every second. Added a Custom rotation interval input (5–3600 seconds) to the Display page using the existing `switchInterval` setting.
+- Built `releases/custom_dashboard_firmware_v9.0.67.bin`. Binary validation passed: 592352 bytes, 56.5% OTA partition usage, MD5 `202d444f3062600bed7cf33a35b2f1aa`. It has not been flashed.

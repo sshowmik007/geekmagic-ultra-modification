@@ -19,6 +19,7 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite prayerClockSprite = TFT_eSprite(&tft);
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdater;
+File photoUploadFile;
 
 const int PRAYER_CLOCK_X = 74;
 const int PRAYER_CLOCK_Y = 24;
@@ -105,9 +106,11 @@ const char* const allThemes[] = {
   "Editorial Weather Clock",
   "Minimalist Clean Clock",
   "AI Token & Rate Monitor",
-  "Cosmic Shuttle & Prayer Station"
+  "Cosmic Shuttle & Prayer Station",
+  "Photo Frame & Ambient Album",
+  "Analog Calendar Clock"
 };
-const int NUM_THEMES = 5;
+const int NUM_THEMES = 7;
 
 // Live prayer times cache (Dhaka defaults)
 struct PrayerTimes {
@@ -134,6 +137,9 @@ struct WeatherData {
 
 unsigned long lastTick = 0;
 int lastRenderedMinute = -1;
+// Minute/second updates redraw the existing layout without clearing the whole panel.
+// A full clear is reserved for boot, theme changes, and settings changes.
+bool partialThemeRefresh = false;
 
 void setBacklight(int percent) {
   // Active-LOW PWM on SmallTV-Ultra: 0 = Full On (100%), 1023 = Off (0%)
@@ -252,6 +258,53 @@ void getTimeAndDate(char* timeBuf, size_t timeLen, char* ampmBuf, size_t ampmLen
     // Default: "24 Oct . Fri"
     snprintf(dateBuf, dateLen, "%d %s . %s", day, months[month], days[wday]);
   }
+}
+
+// Calendar labels stay ASCII on the ESP8266 because the bundled TFT fonts do not contain Bengali/Arabic glyphs.
+void getCalendarDates(char* bangla, size_t banglaLen, char* hijri, size_t hijriLen, char* english, size_t englishLen) {
+  time_t now = time(nullptr);
+  struct tm* t = localtime(&now);
+  int year = (t && t->tm_year + 1900 >= 2024) ? t->tm_year + 1900 : 2026;
+  int month = (t && t->tm_year + 1900 >= 2024) ? t->tm_mon + 1 : 10;
+  int day = (t && t->tm_year + 1900 >= 2024) ? t->tm_mday : 24;
+  int wday = (t && t->tm_year + 1900 >= 2024) ? t->tm_wday : 5;
+  const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+  const char* months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+  snprintf(english, englishLen, "%02d %s %04d %s", day, months[max(0, min(11, month - 1))], year, days[max(0, min(6, wday))]);
+
+  // Bangladesh civil calendar approximation: fixed 14 April new year and 31/30-day month rhythm.
+  const char* banglaMonths[] = {"BOISHAKH", "JOISHTHO", "ASHAR", "SRABON", "BHADRO", "ASHWIN", "KARTIK", "OGROHAYON", "POUSH", "MAGH", "FALGUN", "CHOITRO"};
+  int leap = ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) ? 1 : 0;
+  int startDay = 103 + leap; // tm_yday for 14 April
+  int dayOfYear = t ? t->tm_yday : 297;
+  int bYear = year - 593;
+  if (dayOfYear < startDay) { bYear--; dayOfYear += 365 + leap; }
+  int elapsed = dayOfYear - startDay;
+  int bMonth = 0;
+  int bDay = elapsed + 1;
+  for (int i = 0; i < 12; i++) {
+    int length = i < 6 ? 31 : 30;
+    if (i == 10 && leap) length = 31;
+    if (bDay <= length) { bMonth = i; break; }
+    bDay -= length;
+  }
+  snprintf(bangla, banglaLen, "%02d %s %04d", bDay, banglaMonths[bMonth], bYear);
+
+  // Civil Hijri conversion keeps the device self-contained and avoids another network request.
+  long a = (14 - month) / 12;
+  long y = year + 4800 - a;
+  long m = month + 12 * a - 3;
+  long jd = day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+  long l = jd - 1948440 + 10632;
+  long n = (l - 1) / 10631;
+  l = l - 10631 * n + 354;
+  long j = ((10985 - l) / 5316) * ((50 * l) / 17719) + (l / 5670) * ((43 * l) / 15238);
+  l = l - ((30 - j) / 15) * ((17719 * j) / 50) - (j / 16) * ((15238 * j) / 43) + 29;
+  int hMonth = (int)((24 * l) / 709);
+  int hDay = (int)(l - (709 * hMonth) / 24);
+  int hYear = (int)(30 * n + j - 30);
+  const char* hijriMonths[] = {"MUHARRAM", "SAFAR", "RABI-I", "RABI-II", "JUMADA-I", "JUMADA-II", "RAJAB", "SHABAN", "RAMADAN", "SHAWWAL", "DHU-QADAH", "DHU-HIJJAH"};
+  snprintf(hijri, hijriLen, "%02d %s %04d", hDay, hijriMonths[max(1, min(12, hMonth)) - 1], hYear);
 }
 
 // Drawing Helpers for ST7789 IPS Screen
@@ -492,7 +545,7 @@ void renderThemePrayerWeather() {
 // THEME 2: Minimalist Editorial Clock & Single Weather Hero
 // -------------------------------------------------------------
 void renderThemeEditorialClock() {
-  tft.fillScreen(TFT_BLACK); // Pure Inky Black
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK); // Pure Inky Black
 
   char timeStr[16];
   char ampmStr[6];
@@ -541,7 +594,7 @@ void renderThemeEditorialClock() {
 // THEME 3: Ultra-Clean Minimal Clock (Time + Date + AM/PM)
 // -------------------------------------------------------------
 void renderThemeMinimalClock() {
-  tft.fillScreen(TFT_BLACK); // Pure Inky Black
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK); // Pure Inky Black
 
   char timeStr[16];
   char ampmStr[6];
@@ -588,7 +641,7 @@ void formatTokenCount(long tokens, char* output, size_t outputSize) {
 }
 
 void renderThemeTokenMonitor() {
-  tft.fillScreen(TFT_BLACK);
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
 
   char timeStr[16];
   char ampmStr[6];
@@ -806,7 +859,7 @@ void renderThemeTokenMonitor() {
 // THEME 5: Cosmic Shuttle & Prayer Station
 // -------------------------------------------------------------
 void renderThemeShuttlePrayer() {
-  tft.fillScreen(TFT_BLACK);
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
 
   char timeStr[16];
   char ampmStr[6];
@@ -1096,6 +1149,134 @@ bool refreshPrayerTimes() {
   return true;
 }
 
+// THEME 6: Photo Frame & Ambient Album (240x240 ST7789 Direct Stream)
+void renderThemePhotoAlbum() {
+  if (LittleFS.exists("/photo.raw")) {
+    File f = LittleFS.open("/photo.raw", "r");
+    if (f && f.size() >= 115200) {
+      tft.startWrite();
+      tft.setAddrWindow(0, 0, 240, 240);
+      uint16_t lineBuf[240];
+      for (int y = 0; y < 240; y++) {
+        f.read((uint8_t*)lineBuf, sizeof(lineBuf));
+        tft.pushColors(lineBuf, 240, false);
+      }
+      tft.endWrite();
+      f.close();
+
+      // Subtle translucent time badge overlay (bottom-right)
+      time_t now = time(nullptr);
+      struct tm* t = localtime(&now);
+      if (t && t->tm_year + 1900 >= 2024) {
+        char timeBuf[12];
+        bool is12h = strcmp(deviceConfig.hourFormat, "12-Hour") == 0;
+        int h = t->tm_hour;
+        const char* ampm = h >= 12 ? "PM" : "AM";
+        if (is12h) {
+          h = h % 12;
+          if (h == 0) h = 12;
+          snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d %s", h, t->tm_min, ampm);
+        } else {
+          snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d", h, t->tm_min);
+        }
+        tft.fillRoundRect(134, 208, 98, 24, 12, 0x10A2); // Dark slate
+        tft.drawRoundRect(134, 208, 98, 24, 12, 0x4A69); // Border
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextColor(TFT_WHITE, 0x10A2);
+        tft.drawString(timeBuf, 183, 220, 2);
+      }
+      return;
+    }
+    if (f) f.close();
+  }
+
+  // Placeholder when no photo is uploaded yet
+  tft.fillScreen(TFT_BLACK);
+  tft.drawRoundRect(10, 10, 220, 220, 12, 0x2965);
+  tft.drawRoundRect(14, 14, 212, 212, 8, 0x18E3);
+
+  // Polaroid / Camera Icon
+  tft.fillRoundRect(85, 55, 70, 50, 6, 0x39E7);
+  tft.fillCircle(120, 80, 16, 0x0841);
+  tft.drawCircle(120, 80, 16, 0xFDA0);
+  tft.fillCircle(120, 80, 8, 0xFDA0);
+  tft.fillCircle(142, 65, 4, 0xFC00);
+
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(0xFDA0, TFT_BLACK);
+  tft.drawString("PHOTO FRAME", 120, 130, 4);
+
+  tft.setTextColor(0x9CD3, TFT_BLACK);
+  tft.drawString("No photo uploaded yet", 120, 158, 2);
+  tft.drawString("Upload 240x240 image at:", 120, 178, 2);
+  tft.setTextColor(0x3DFE, TFT_BLACK);
+  String ipStr = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "192.168.4.1";
+  tft.drawString("http://" + ipStr + "/#media", 120, 198, 2);
+}
+
+// THEME 7: Analogue clock with Bengali, Hijri, and English calendar lines.
+void renderThemeAnalogCalendar() {
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+  time_t now = time(nullptr);
+  struct tm* t = localtime(&now);
+  int hour = t ? t->tm_hour : 12;
+  int minute = t ? t->tm_min : 0;
+  int second = t ? t->tm_sec : 0;
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(deviceConfig.city, 10, 7, 2);
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(WiFi.status() == WL_CONNECTED ? TFT_GREEN : 0x7BEF, TFT_BLACK);
+  tft.drawString(WiFi.status() == WL_CONNECTED ? "LIVE" : "OFFLINE", 230, 9, 1);
+
+  const int cx = 120, cy = 81, radius = 49;
+  tft.fillCircle(cx, cy, radius, 0x0861);
+  tft.drawCircle(cx, cy, radius, 0xFDA0);
+  tft.drawCircle(cx, cy, radius - 4, 0x2124);
+  for (int i = 0; i < 12; i++) {
+    float angle = (i * 30 - 90) * 0.01745329f;
+    int x1 = cx + (int)(cos(angle) * (radius - 8));
+    int y1 = cy + (int)(sin(angle) * (radius - 8));
+    int x2 = cx + (int)(cos(angle) * (radius - 13));
+    int y2 = cy + (int)(sin(angle) * (radius - 13));
+    tft.drawLine(x1, y1, x2, y2, 0x9CD3);
+  }
+  float hourAngle = ((hour % 12) + minute / 60.0f) * 30.0f - 90.0f;
+  float minuteAngle = (minute + second / 60.0f) * 6.0f - 90.0f;
+  float secondAngle = second * 6.0f - 90.0f;
+  auto hand = [&](float degrees, int length, uint16_t color, int width) {
+    float angle = degrees * 0.01745329f;
+    int x = cx + (int)(cos(angle) * length);
+    int y = cy + (int)(sin(angle) * length);
+    for (int offset = 0; offset < width; offset++) tft.drawLine(cx + offset, cy, x + offset, y, color);
+  };
+  hand(hourAngle, 25, TFT_WHITE, 3);
+  hand(minuteAngle, 35, 0xFDA0, 2);
+  hand(secondAngle, 40, 0x3DFE, 1);
+  tft.fillCircle(cx, cy, 3, 0xFDA0);
+
+  char bangla[32], hijri[32], english[32];
+  getCalendarDates(bangla, sizeof(bangla), hijri, sizeof(hijri), english, sizeof(english));
+  tft.drawFastHLine(10, 137, 220, 0x2965);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(0xFDA0, TFT_BLACK);
+  tft.drawString("BAN", 10, 145, 1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(bangla, 38, 145, 1);
+  tft.setTextColor(0x3DFE, TFT_BLACK);
+  tft.drawString("HIJ", 10, 161, 1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(hijri, 38, 161, 1);
+  tft.setTextColor(0x9CD3, TFT_BLACK);
+  tft.drawString("EN", 10, 177, 1);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(english, 38, 177, 1);
+  tft.setTextColor(0x7BEF, TFT_BLACK);
+  tft.setTextDatum(TC_DATUM);
+  tft.drawString("ANALOG CALENDAR", 120, 207, 1);
+}
+
 void renderCurrentTheme() {
   if (strcmp(deviceConfig.theme, "Editorial Weather Clock") == 0) {
     renderThemeEditorialClock();
@@ -1105,6 +1286,10 @@ void renderCurrentTheme() {
     renderThemeTokenMonitor();
   } else if (strcmp(deviceConfig.theme, "Cosmic Shuttle & Prayer Station") == 0) {
     renderThemeShuttlePrayer();
+  } else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
+    renderThemePhotoAlbum();
+  } else if (strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0) {
+    renderThemeAnalogCalendar();
   } else {
     renderThemePrayerWeather();
   }
@@ -1127,7 +1312,7 @@ void rotateToNextTheme() {
 void handleApiStatus() {
   JsonDocument doc;
   doc["model"] = "SmallTV-Ultra";
-  doc["firmware"] = "Ultra-V9.0.64-Custom";
+  doc["firmware"] = "Ultra-V9.0.67-Custom";
   doc["chip"] = "ESP8266EX (80 MHz)";
   doc["flashSize"] = "4 MB";
   doc["freeHeap"] = String(ESP.getFreeHeap() / 1024.0, 1) + " KB";
@@ -1494,6 +1679,53 @@ void setup() {
   server.on("/api/tokens", HTTP_POST, handleApiTokensPost);
   server.on("/api/wifi/scan", HTTP_GET, handleApiWifiScan);
   server.on("/api/wifi/connect", HTTP_POST, handleApiWifiConnect);
+
+  // Photo & Media Endpoints
+  server.on("/api/media/upload", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", "{\"success\":true,\"message\":\"Photo saved successfully!\"}");
+    if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
+      renderCurrentTheme();
+    }
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      LittleFS.remove("/photo.raw");
+      photoUploadFile = LittleFS.open("/photo.raw", "w");
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (photoUploadFile) {
+        photoUploadFile.write(upload.buf, upload.currentSize);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (photoUploadFile) {
+        photoUploadFile.close();
+      }
+    }
+  });
+
+  server.on("/api/media/delete", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    LittleFS.remove("/photo.raw");
+    if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
+      renderCurrentTheme();
+    }
+    server.send(200, "application/json", "{\"success\":true,\"message\":\"Photo deleted\"}");
+  });
+
+  server.on("/api/media/status", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    bool hasPhoto = LittleFS.exists("/photo.raw");
+    size_t size = 0;
+    if (hasPhoto) {
+      File f = LittleFS.open("/photo.raw", "r");
+      if (f) { size = f.size(); f.close(); }
+    }
+    String json = "{\"hasPhoto\":" + String(hasPhoto ? "true" : "false") + 
+                  ",\"size\":" + String(size) + 
+                  ",\"theme\":\"" + String(deviceConfig.theme) + "\"}";
+    server.send(200, "application/json", json);
+  });
+
   server.on("/api/system/reboot", HTTP_POST, []() {
     server.send(200, "application/json", "{\"success\":true,\"message\":\"Rebooting...\"}");
     delay(500);
@@ -1545,6 +1777,7 @@ void loop() {
   }
 
   bool prayerWeatherTheme = strcmp(deviceConfig.theme, "Weather & Prayer Station") == 0;
+  bool analogCalendarTheme = strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0;
   if (prayerWeatherTheme) {
     static unsigned long lastClockFrame = 0;
     static unsigned long lastWeatherFrame = 0;
@@ -1560,6 +1793,16 @@ void loop() {
     }
   }
 
+  if (analogCalendarTheme) {
+    static unsigned long lastAnalogFrame = 0;
+    if (millis() - lastAnalogFrame >= 1000) {
+      lastAnalogFrame = millis();
+      partialThemeRefresh = true;
+      renderThemeAnalogCalendar();
+      partialThemeRefresh = false;
+    }
+  }
+
   // Update only dynamic regions on the prayer/weather theme to avoid a full-screen flash.
   time_t now = time(nullptr);
   struct tm* t = localtime(&now);
@@ -1571,8 +1814,10 @@ void loop() {
       drawPrayerWeatherClock(true);
       drawPrayerWeatherDate();
       drawPrayerWeatherSchedule();
-    } else {
+    } else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") != 0) {
+      partialThemeRefresh = true;
       renderCurrentTheme();
+      partialThemeRefresh = false;
     }
   }
 }

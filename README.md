@@ -2,7 +2,7 @@
 
 A complete, production-grade custom firmware and responsive web control dashboard engineered specifically for the **GeekMagic SmallTV-Ultra** (ESP8266EX 80 MHz MCU, 4 MB Flash, 1.54" 240×240 ST7789 IPS LCD).
 
-Featuring **True Inky Black IPS display rendering**, **3 selectable high-contrast themes**, **Islamic Prayer Times (AlAdhan API integration)**, **12h/24h clock and date format organizer**, **captive portal Wi-Fi manager**, and **direct in-browser OTA updates**.
+Featuring **True Inky Black IPS display rendering**, **7 selectable high-contrast themes**, **Islamic Prayer Times (AlAdhan API integration)**, **12h/24h clock and date format organizer**, **captive portal Wi-Fi manager**, and **direct in-browser OTA updates**.
 
 > 🛠️ **Build & Environment Setup Guide:** See [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) for required software, dependencies, and step-by-step compilation instructions.
 
@@ -15,7 +15,7 @@ Featuring **True Inky Black IPS display rendering**, **3 selectable high-contras
 - **Flicker-Free Rendering**: Eliminated periodic full-screen wipe flickers; the display refreshes only on minute transitions.
 - **Active-Low PWM Brightness**: Hardware-accurate backlight regulation (0–100%) mapped to GPIO 5 (`0` = 100% full bright, `1023` = 0% off).
 
-### 2. Five Selectable Display Themes
+### 2. Seven Selectable Display Themes
 1. **Weather & Prayer Station (Theme 1)**:
    - Dynamic real-time clock (12-Hour with AM/PM pill indicator or 24-Hour) with kinetic blinking colons.
    - Configurable regional date string (e.g. `24 Oct . Fri`).
@@ -44,6 +44,10 @@ Featuring **True Inky Black IPS display rendering**, **3 selectable high-contras
    - **Full Salah Schedule Table**: Displays `START` and `END` times for all 5 daily prayers (Fajr, Dhuhr, Asr, Maghrib, Isha) in 12-Hour format.
    - **Dynamic Real-Time Waqt Focusing**: Automatically tracks the current wall-clock time and focuses the active upcoming prayer row (e.g., glows on Dhuhr during morning, switches to Asr, then Maghrib, Isha, Fajr) with a luminous golden border and background gradient.
    - **Live Countdown Hero Card**: Displays `NEXT: [WAQT] / STARTS IN` with a real-time `HH:MM:SS` countdown timer.
+6. **Photo Frame & Ambient Album (Theme 6)**:
+   - Displays a 240×240 LittleFS image with an unobtrusive time badge.
+7. **Analog Calendar Clock (Theme 7)**:
+   - Live analogue clock face with Bengali, Hijri, and English date lines.
 
 ### 3. Real-Time AI Agent Companion (Live Auto-Detection & Multi-Agent Rotation)
 - **Zero Hardcoding**: Real live usage parsed directly from your laptop's local AI agent session logs:
@@ -64,6 +68,7 @@ Featuring **True Inky Black IPS display rendering**, **3 selectable high-contras
   *(Or use `companion/start-companion.bat` or `companion/start-companion-silent.vbs` for background startup).*
 
 ### 4. Dynamic Theme Looping (Auto-Rotation)
+- **Analog Calendar Clock**: A live analogue face with Bengali, Hijri, and English calendar lines in the dashboard and firmware.
 - **Automatic Sequential Loop**: Cycles through your selected themes automatically after a configurable interval (10s, 15s, 30s, 60s, 120s).
 - **Custom Active Theme Selection**: Interactive checkboxes / chips let you choose exactly which themes participate in the rotation.
 - **In-Browser Real-Time Preview**: When enabled, the web dashboard's live simulation automatically rotates in sync with the hardware.

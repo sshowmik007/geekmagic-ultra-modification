@@ -23,6 +23,8 @@ let defaultMockSettings = {
       "Minimalist Clean Clock",
       "AI Token & Rate Monitor",
       "Cosmic Shuttle & Prayer Station",
+      "Photo Frame & Ambient Album",
+      "Analog Calendar Clock",
     ],
     nightMode: {
       enabled: true,
@@ -65,7 +67,7 @@ let defaultMockSettings = {
     mode: "Auto",
     timezone: "Asia/Dhaka (UTC+6:00)",
     utcOffset: "UTC+6:00",
-    hourFormat: "24-Hour",
+    hourFormat: "12-Hour",
     dateFormat: "DD/MM/YYYY",
     colonBlink: true,
     fontStyle: "Default Big Font",
@@ -75,6 +77,7 @@ let defaultMockSettings = {
       minute: "#feba01",
       second: "#ffffff",
     },
+    clockStyle: "digital",
   },
   network: {
     ssid: "Home",
@@ -235,6 +238,30 @@ export function createServer() {
             res.end(JSON.stringify({ error: "Invalid JSON format" }));
           }
         });
+        return;
+      }
+
+      // 3d. POST /api/media/upload
+      if (req.method === "POST" && pathname === "/api/media/upload") {
+        let chunks = [];
+        req.on("data", (chunk) => chunks.push(chunk));
+        req.on("end", () => {
+          mockSettings.media = mockSettings.media || {};
+          mockSettings.media.hasPhoto = true;
+          persistSettings();
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: "Photo uploaded & converted to 240×240 RGB565." }));
+        });
+        return;
+      }
+
+      // 3e. POST /api/media/delete
+      if (req.method === "POST" && pathname === "/api/media/delete") {
+        mockSettings.media = mockSettings.media || {};
+        mockSettings.media.hasPhoto = false;
+        persistSettings();
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: "Photo deleted." }));
         return;
       }
 

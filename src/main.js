@@ -9,6 +9,8 @@ const themes = [
   "Minimalist Clean Clock",
   "AI Token & Rate Monitor",
   "Cosmic Shuttle & Prayer Station",
+  "Photo Frame & Ambient Album",
+  "Analog Calendar Clock",
 ];
 
 function escapeHtml(value) {
@@ -108,6 +110,31 @@ function formatDatePreview(dateFormat) {
   return `${d.getDate()} ${months[d.getMonth()]} . ${days[d.getDay()]}`;
 }
 
+function formatCalendarDates(date = new Date()) {
+  const localized = (locale, options, fallback) => {
+    try { return new Intl.DateTimeFormat(locale, options).format(date); } catch { return fallback; }
+  };
+  return {
+    bangla: localized("bn-BD-u-ca-beng", { day: "numeric", month: "long", year: "numeric" }, "বাংলা তারিখ"),
+    hijri: localized("ar-SA-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" }, "التاريخ الهجري"),
+    english: localized("en-GB", { day: "2-digit", month: "short", year: "numeric", weekday: "short" }, "25 Oct 2026 Sun"),
+  };
+}
+
+function analogClockSvg(date) {
+  const hourAngle = ((date.getHours() % 12) + date.getMinutes() / 60) * 30;
+  const minuteAngle = (date.getMinutes() + date.getSeconds() / 60) * 6;
+  const secondAngle = date.getSeconds() * 6;
+  const hand = (angle, length, width, color, className = "") => `<line class="${className}" x1="120" y1="82" x2="120" y2="${82 - length}" transform="rotate(${angle} 120 82)" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+  const ticks = Array.from({ length: 12 }, (_, i) => `<line x1="120" y1="34" x2="120" y2="39" transform="rotate(${i * 30} 120 82)" stroke="#94a3b8" stroke-width="1.4"/>`).join("");
+  return `<svg class="analog-clock-svg" viewBox="0 0 240 150" role="img" aria-label="Live analogue clock">
+    <circle cx="120" cy="82" r="49" fill="#0b1220" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="120" cy="82" r="44" fill="none" stroke="#263247" stroke-width="1"/>
+    ${ticks}${hand(hourAngle, 25, 3, "#f8fafc")}${hand(minuteAngle, 34, 2, "#f59e0b")}${hand(secondAngle, 39, 1, "#38bdf8", "analog-second")}
+    <circle cx="120" cy="82" r="3" fill="#f59e0b"/><circle cx="120" cy="82" r="1.3" fill="#0b1220"/>
+  </svg>`;
+}
+
 function titleFor(page) {
   if (page === "prayer") return "Prayer Times";
   return page[0].toUpperCase() + page.slice(1);
@@ -124,7 +151,20 @@ function renderThemeSimulation(state) {
   const hh = String(hours).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   const dateStr = formatDatePreview(state.time.dateFormat);
+  const calendarDates = formatCalendarDates(d);
   const theme = state.display.theme;
+
+  if (theme === "Analog Calendar Clock") {
+    return `<div class="screen-inner theme-sim-analog-calendar">
+      <div class="analog-topline"><span>${escapeHtml(state.weather.city || "Dhaka")}</span><span class="analog-live"><i></i> LIVE</span></div>
+      ${analogClockSvg(d)}
+      <div class="analog-date-stack" role="status" aria-live="polite">
+        <div><b>বাংলা</b><span>${calendarDates.bangla}</span></div>
+        <div><b>ه‍جري</b><span>${calendarDates.hijri}</span></div>
+        <div><b>EN</b><span>${calendarDates.english}</span></div>
+      </div>
+    </div>`;
+  }
 
   if (theme === "Editorial Weather Clock") {
     return `
@@ -294,6 +334,40 @@ function renderThemeSimulation(state) {
             ${tokens.isLaptopOnline ? tokens.agentState : "STANDBY"}
           </div>
         </div>
+      </div>
+    `;
+  }
+
+  if (theme === "Photo Frame & Ambient Album") {
+    const hasPhoto = state.media && (state.media.activePhotoUrl || (state.media.files && state.media.files.length > 0 && state.media.files[0].url));
+    const photoUrl = hasPhoto ? (state.media.activePhotoUrl || state.media.files[0].url) : null;
+
+    return `
+      <div class="screen-inner theme-sim-photo-album" style="position: relative; width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        ${photoUrl ? `
+          <img src="${photoUrl}" alt="Photo Frame Preview" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />
+          <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 9999px; padding: 2px 8px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
+            <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #fff;">
+              ${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}">:</span>${mm}
+            </span>
+            ${is12h ? `<span style="font-size: 8px; font-weight: 700; color: #f59e0b;">${ampm}</span>` : ""}
+          </div>
+        ` : `
+          <div style="text-align: center; padding: 1.5rem; color: #94a3b8; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; box-sizing: border-box;">
+            <div style="width: 52px; height: 52px; border: 2px dashed #475569; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; background: #0f172a;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #f8fafc; letter-spacing: 0.05em; margin-bottom: 4px;">PHOTO FRAME</div>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 8px;">No photo uploaded yet</div>
+            <div style="font-size: 9px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 4px; padding: 2px 6px;">
+              Upload at #media
+            </div>
+          </div>
+        `}
       </div>
     `;
   }
@@ -510,6 +584,40 @@ function renderThemeSimulation(state) {
     `;
   }
 
+  if (theme === "Photo Frame & Ambient Album") {
+    const hasPhoto = state.media && (state.media.activePhotoUrl || (state.media.files && state.media.files.length > 0 && state.media.files[0].url));
+    const photoUrl = hasPhoto ? (state.media.activePhotoUrl || state.media.files[0].url) : null;
+
+    return `
+      <div class="screen-inner theme-sim-photo-album" style="position: relative; width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        ${photoUrl ? `
+          <img src="${photoUrl}" alt="Photo Frame Preview" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" />
+          <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 9999px; padding: 2px 8px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
+            <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #fff;">
+              ${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}">:</span>${mm}
+            </span>
+            ${is12h ? `<span style="font-size: 8px; font-weight: 700; color: #f59e0b;">${ampm}</span>` : ""}
+          </div>
+        ` : `
+          <div style="text-align: center; padding: 1.5rem; color: #94a3b8; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; box-sizing: border-box;">
+            <div style="width: 52px; height: 52px; border: 2px dashed #475569; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; background: #0f172a;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #f8fafc; letter-spacing: 0.05em; margin-bottom: 4px;">PHOTO FRAME</div>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 8px;">No photo uploaded yet</div>
+            <div style="font-size: 9px; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 4px; padding: 2px 6px;">
+              Upload at #media
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
   // Default: Weather & Prayer Station
   function timeToMinutes(timeStr) {
     if (!timeStr) return 0;
@@ -711,19 +819,8 @@ function overviewContent(state) {
 }
 
 function displayContent(state) {
-  const knownTokenModels = [
-    "Gemini 3.8 Flash", "Gemini 3.8 Pro", "Gemini 3.0 Ultra", "Gemini 2.5 Flash",
-    "GPT-5.6-LUNA", "GPT-5.6-Terra", "o3-mini", "o1-preview", "GPT-4.1-turbo",
-    "Claude 3.7 Sonnet", "Claude 3.5 Sonnet", "Claude 3.5 Haiku",
-    "DeepSeek-R1", "Qwen-2.5-Coder-32B",
-  ];
-  const liveProvider = escapeHtml(state.tokens.provider || "Unavailable");
-  const liveModel = escapeHtml(state.tokens.model || "Model unavailable");
-  const liveModelOption = !state.tokens.provider
-    ? `<option value="unavailable" selected>Connect provider — no verified model</option>`
-    : state.tokens.model && !knownTokenModels.includes(state.tokens.model)
-    ? `<optgroup label="Live companion"><option value="${liveProvider}:${liveModel}" selected>${liveProvider} — ${liveModel}</option></optgroup>`
-    : "";
+  const liveProvider = escapeHtml(state.tokens.provider || "Gemini");
+  const liveModel = escapeHtml(state.tokens.model || "Live Stream");
 
   return `
     <section class="details-panel">
@@ -796,7 +893,10 @@ function displayContent(state) {
                   <option value="30"${state.display.switchInterval === 30 ? " selected" : ""}>Every 30 Seconds</option>
                   <option value="60"${state.display.switchInterval === 60 ? " selected" : ""}>Every 60 Seconds (1 minute)</option>
                   <option value="120"${state.display.switchInterval === 120 ? " selected" : ""}>Every 120 Seconds (2 minutes)</option>
+                  <option value="custom"${[10, 15, 30, 60, 120].includes(Number(state.display.switchInterval)) ? "" : " selected"}>Custom</option>
                 </select>
+                <label for="switch-interval-custom" style="font-size: 0.8rem; color: var(--color-muted); display: block; margin-top: 0.5rem;">Custom seconds (5–3600)</label>
+                <input id="switch-interval-custom" class="text-input" type="number" min="5" max="3600" step="1" placeholder="Enter seconds" value="${[10, 15, 30, 60, 120].includes(Number(state.display.switchInterval)) ? "" : state.display.switchInterval}" style="max-width: 260px;" />
               </div>
 
               <div>
@@ -829,28 +929,14 @@ function displayContent(state) {
         <div>
           <label for="token-provider">Detected AI Provider & Model</label>
           <select id="token-provider" class="text-input" data-tokenfield="provider" disabled>
-            ${liveModelOption}
-            <optgroup label="Google Gemini (Current Active)">
-              <option value="Gemini:Gemini 3.8 Flash"${state.tokens.provider === "Gemini" && (!state.tokens.model || state.tokens.model.includes("3.8 Flash")) ? " selected" : ""}>Gemini 3.8 Flash (Active Current)</option>
-              <option value="Gemini:Gemini 3.8 Pro"${state.tokens.model === "Gemini 3.8 Pro" ? " selected" : ""}>Gemini 3.8 Pro (Extended Thinking)</option>
-              <option value="Gemini:Gemini 3.0 Ultra"${state.tokens.model === "Gemini 3.0 Ultra" ? " selected" : ""}>Gemini 3.0 Ultra</option>
-              <option value="Gemini:Gemini 2.5 Flash"${state.tokens.model === "Gemini 2.5 Flash" ? " selected" : ""}>Gemini 2.5 Flash</option>
+            <optgroup label="Active Live Telemetry Stream">
+              <option value="${liveProvider}:${liveModel}" selected>${liveProvider} &mdash; ${liveModel}</option>
             </optgroup>
-            <optgroup label="OpenAI / Codex (Current Active)">
-              <option value="OpenAI / Codex:GPT-5.6-LUNA"${(state.tokens.provider === "Codex" || state.tokens.provider === "OpenAI / Codex") && state.tokens.model === "GPT-5.6-LUNA" ? " selected" : ""}>GPT-5.6-LUNA (Codex Active)</option>
-              <option value="OpenAI / Codex:GPT-5.6-Terra"${(state.tokens.provider === "Codex" || state.tokens.provider === "OpenAI / Codex") && state.tokens.model === "GPT-5.6-Terra" ? " selected" : ""}>GPT-5.6-Terra (Codex Active)</option>
-              <option value="OpenAI / Codex:o3-mini"${state.tokens.model === "o3-mini" ? " selected" : ""}>o3-mini (High Reasoning)</option>
-              <option value="OpenAI / Codex:o1-preview"${state.tokens.model === "o1-preview" ? " selected" : ""}>o1-preview</option>
-              <option value="OpenAI / Codex:GPT-4.1-turbo"${state.tokens.model === "GPT-4.1-turbo" ? " selected" : ""}>GPT-4.1-turbo</option>
-            </optgroup>
-            <optgroup label="Anthropic Claude (Current Flagship)">
-              <option value="Claude:Claude 3.7 Sonnet"${state.tokens.provider === "Claude" && (!state.tokens.model || state.tokens.model.includes("3.7")) ? " selected" : ""}>Claude 3.7 Sonnet (Hybrid Thinking)</option>
-              <option value="Claude:Claude 3.5 Sonnet"${state.tokens.model === "Claude 3.5 Sonnet" ? " selected" : ""}>Claude 3.5 Sonnet</option>
-              <option value="Claude:Claude 3.5 Haiku"${state.tokens.model === "Claude 3.5 Haiku" ? " selected" : ""}>Claude 3.5 Haiku</option>
-            </optgroup>
-            <optgroup label="OpenCode / Open Source">
-              <option value="OpenCode:DeepSeek-R1"${state.tokens.model === "DeepSeek-R1" ? " selected" : ""}>DeepSeek-R1 (OpenCode)</option>
-              <option value="OpenCode:Qwen-2.5-Coder-32B"${state.tokens.model === "Qwen-2.5-Coder-32B" ? " selected" : ""}>Qwen-2.5-Coder-32B (OpenCode)</option>
+            <optgroup label="Supported Providers">
+              <option value="Gemini:Live">Google Gemini (Antigravity)</option>
+              <option value="Codex:Live">OpenAI Codex</option>
+              <option value="Claude:Live">Anthropic Claude</option>
+              <option value="OpenCode:Live">OpenCode / Local Models</option>
             </optgroup>
           </select>
         </div>
@@ -1116,7 +1202,7 @@ function timeContent(state) {
       </div>
       
       <div class="screen-frame my-4">
-        <div class="screen-inner">
+        ${state.time.clockStyle === "analog" ? renderThemeSimulation({ ...state, display: { ...state.display, theme: "Analog Calendar Clock" } }) : `<div class="screen-inner">
           <div class="screen-top-bar">
             <span>${state.weather.city} 28${state.weather.tempUnit}</span>
             <span>📶 ${state.network.signal}%</span>
@@ -1126,7 +1212,7 @@ function timeContent(state) {
             <span>${formatDatePreview(state.time.dateFormat)}</span>
             <span>${state.time.hourFormat}</span>
           </div>
-        </div>
+        </div>`}
       </div>
 
       <div>
@@ -1170,6 +1256,13 @@ function timeContent(state) {
           <select id="time-format" class="select-input" data-timefield="hourFormat">
             <option value="12-Hour"${state.time.hourFormat === "12-Hour" ? " selected" : ""}>12-Hour (09:44 PM)</option>
             <option value="24-Hour"${state.time.hourFormat === "24-Hour" ? " selected" : ""}>24-Hour (21:44)</option>
+          </select>
+        </div>
+        <div>
+          <label for="clock-style">Clock Style</label>
+          <select id="clock-style" class="select-input" data-timefield="clockStyle">
+            <option value="digital"${state.time.clockStyle !== "analog" ? " selected" : ""}>Digital clock</option>
+            <option value="analog"${state.time.clockStyle === "analog" ? " selected" : ""}>Analogue clock + 3 calendars</option>
           </select>
         </div>
         <div>
@@ -1298,13 +1391,24 @@ function networkContent(state) {
 }
 
 function mediaContent(state) {
+  const isPhotoTheme = state.display.theme === "Photo Frame & Ambient Album";
+  const activePhoto = state.media.activePhotoUrl || (state.media.files.length > 0 ? state.media.files[0].url : null);
+
   return `
     <section class="details-panel">
-      <div>
-        <p class="section-kicker">Slideshow Settings</p>
-        <h2>Photo Album Mode</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <p class="section-kicker">Display Mode</p>
+          <h2>Photo Album & Ambient Frame</h2>
+          <p class="section-subtitle">Show custom artwork, photos, or ambient GIFs on the 240×240 ST7789 screen.</p>
+        </div>
+        <div>
+          ${isPhotoTheme
+            ? `<span class="tag-badge" style="background:#dcfce7; color:#15803d; border-color:#86efac; padding:6px 12px; font-size:0.82rem;">✓ Active on SmallTV Display</span>`
+            : `<button type="button" class="btn-primary" data-action="activate-photo-theme" style="padding: 6px 14px;">Activate Photo Frame Theme</button>`}
+        </div>
       </div>
-      <div class="control-stack">
+      <div class="control-stack mt-4">
         <label class="check-control" for="media-auto">
           <input id="media-auto" type="checkbox"${state.media.autoDisplay ? " checked" : ""} />
           <span>Enable image auto-display slideshow</span>
@@ -1318,26 +1422,87 @@ function mediaContent(state) {
 
     <section class="details-panel">
       <div>
-        <p class="section-kicker">Storage (LittleFS)</p>
-        <h2>Uploaded Images & GIFs (240×240px)</h2>
-        <p class="section-subtitle">Images stored in flash filesystem for the Photo Album theme.</p>
+        <p class="section-kicker">Image Upload & Converter</p>
+        <h2>Upload Photo (Auto-Converted to 240×240)</h2>
+        <p class="section-subtitle">Drop any picture below. It will automatically crop and convert to native 240×240 ST7789 display format.</p>
+      </div>
+
+      <!-- Hidden file input for file picker -->
+      <input type="file" id="media-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;" />
+
+      <!-- Interactive Dropzone -->
+      <div id="media-dropzone" class="dropzone mt-4" data-action="trigger-file-input">
+        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🖼️</div>
+        <p style="font-size: 1rem; color: var(--color-ink); margin-bottom: 0.25rem;">
+          <strong>Click to select photo</strong> or drag & drop here
+        </p>
+        <span class="dropzone-hint">Supports JPG, PNG, GIF, WebP &middot; Browser automatically scales to 240&times;240px</span>
+        <button type="button" class="btn-secondary mt-3" data-action="trigger-file-input" style="pointer-events: none;">
+          📁 Choose Image File
+        </button>
+      </div>
+
+      <!-- Live upload progress status -->
+      <div id="media-upload-status" style="display: none; margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"></div>
+    </section>
+
+    <section class="details-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <p class="section-kicker">Storage (LittleFS)</p>
+          <h2>Stored Media Gallery</h2>
+          <p class="section-subtitle">Images stored in flash memory for the Photo Album theme.</p>
+        </div>
+        <span style="font-size: 0.8rem; color: var(--color-muted);">${state.media.files.length} items</span>
       </div>
 
       <div class="file-grid">
-        ${state.media.files.map((file) => `
-          <div class="file-card">
-            <div class="file-thumb">🖼️</div>
-            <div class="file-info">
-              <span class="file-name">${file.name}</span>
-              <span class="file-meta">${file.size} · ${file.type}</span>
+        ${state.media.files.map((file) => {
+          const isActive = file.active || file.url === activePhoto;
+          return `
+            <div class="file-card ${isActive ? "is-active-media" : ""}">
+              <div class="file-thumb">
+                ${file.url
+                  ? `<img src="${file.url}" alt="${escapeHtml(file.name)}" />`
+                  : `<span style="font-size: 1.5rem;">🖼️</span>`}
+              </div>
+              <div class="file-info">
+                <span class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                <span class="file-meta">${file.size || "115 KB"} &middot; ${file.type || "240×240"}</span>
+                <div class="file-actions">
+                  ${isActive
+                    ? `<span style="font-size: 0.75rem; color: #16a34a; font-weight: 700;">● Active on Screen</span>`
+                    : `<button type="button" class="btn-sm" data-action="set-active-photo" data-name="${escapeHtml(file.name)}" data-url="${escapeHtml(file.url || "")}">Display</button>`}
+                  <button type="button" class="btn-sm text-red-600" data-action="delete-photo" data-name="${escapeHtml(file.name)}">Delete</button>
+                </div>
+              </div>
             </div>
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
 
-      <div class="dropzone">
-        <p><strong>Drag & drop 240×240 JPG or GIF</strong> or click to browse</p>
-        <span class="dropzone-hint">(Upload is disabled in local prototype mode)</span>
+      <!-- Supported Image Format Specifications Card -->
+      <div class="media-spec-grid">
+        <div class="media-spec-card">
+          <div class="media-spec-label">Target Resolution</div>
+          <div class="media-spec-val">240 &times; 240 px</div>
+          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">1:1 Square IPS panel</div>
+        </div>
+        <div class="media-spec-card">
+          <div class="media-spec-label">Color Format</div>
+          <div class="media-spec-val">16-Bit RGB565</div>
+          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">65,536 colors (Hardware)</div>
+        </div>
+        <div class="media-spec-card">
+          <div class="media-spec-label">Input Formats</div>
+          <div class="media-spec-val">JPG, PNG, WebP, GIF</div>
+          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">Auto-scaled in browser</div>
+        </div>
+        <div class="media-spec-card">
+          <div class="media-spec-label">Flash Partition</div>
+          <div class="media-spec-val">LittleFS Flash</div>
+          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">Preserved across reboots</div>
+        </div>
       </div>
     </section>`;
 }
@@ -1702,6 +1867,41 @@ if (typeof document !== "undefined") {
       render();
       return;
     }
+
+    if (event.target.closest("[data-action='trigger-file-input']")) {
+      document.querySelector("#media-file-input")?.click();
+      return;
+    }
+
+    if (event.target.closest("[data-action='activate-photo-theme']")) {
+      state = reduce(state, { type: "set-theme", theme: "Photo Frame & Ambient Album" });
+      render();
+      triggerSave(true);
+      return;
+    }
+
+    const setActivePhotoBtn = event.target.closest("[data-action='set-active-photo']");
+    if (setActivePhotoBtn) {
+      const name = setActivePhotoBtn.dataset.name;
+      const url = setActivePhotoBtn.dataset.url;
+      state = reduce(state, { type: "set-active-photo", name, url });
+      state = reduce(state, { type: "set-theme", theme: "Photo Frame & Ambient Album" });
+      render();
+      triggerSave(true);
+      return;
+    }
+
+    const deletePhotoBtn = event.target.closest("[data-action='delete-photo']");
+    if (deletePhotoBtn) {
+      const name = deletePhotoBtn.dataset.name;
+      if (confirm(`Remove "${name}"?`)) {
+        api.deleteMedia(name).then(() => {
+          state = reduce(state, { type: "delete-media-file", name });
+          render();
+        });
+      }
+      return;
+    }
   });
 
   app.addEventListener("input", (event) => {
@@ -1744,7 +1944,18 @@ if (typeof document !== "undefined") {
     }
 
     if (event.target.id === "switch-interval") {
-      state = reduce(state, { type: "set-switch-interval", value: event.target.value });
+      if (event.target.value !== "custom") {
+        state = reduce(state, { type: "set-switch-interval", value: event.target.value });
+        render();
+        triggerSave();
+        syncAutoLoop();
+      }
+      return;
+    }
+
+    if (event.target.id === "switch-interval-custom") {
+      const seconds = Math.min(3600, Math.max(5, Number(event.target.value) || 15));
+      state = reduce(state, { type: "set-switch-interval", value: seconds });
       render();
       triggerSave();
       syncAutoLoop();
@@ -1777,6 +1988,13 @@ if (typeof document !== "undefined") {
       return;
     }
 
+    if (event.target.id === "media-file-input") {
+      if (event.target.files && event.target.files[0]) {
+        handlePhotoUpload(event.target.files[0]);
+      }
+      return;
+    }
+
     if (event.target.dataset.timefield) {
       state = reduce(state, {
         type: "set-time-field",
@@ -1786,6 +2004,117 @@ if (typeof document !== "undefined") {
       render();
       triggerSave();
       return;
+    }
+  });
+
+  function handlePhotoUpload(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      state = reduce(state, { type: "set-notification", message: "Please select an image file (JPG, PNG, GIF, WebP)." });
+      render();
+      return;
+    }
+
+    const statusEl = document.querySelector("#media-upload-status");
+    if (statusEl) {
+      statusEl.style.display = "block";
+      statusEl.style.background = "#e0f2fe";
+      statusEl.style.color = "#0369a1";
+      statusEl.textContent = `Optimizing "${file.name}" to 240×240 for ST7789 display...`;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 240;
+        canvas.height = 240;
+        const ctx = canvas.getContext("2d");
+
+        const scale = Math.max(240 / img.width, 240 / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const x = (240 - w) / 2;
+        const y = (240 - h) / 2;
+
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, 240, 240);
+        ctx.drawImage(img, x, y, w, h);
+
+        const previewUrl = canvas.toDataURL("image/jpeg", 0.9);
+        const imgData = ctx.getImageData(0, 0, 240, 240).data;
+
+        // 240 * 240 * 2 = 115,200 bytes RGB565
+        const rgb565 = new Uint8Array(240 * 240 * 2);
+        for (let i = 0, j = 0; i < imgData.length; i += 4, j += 2) {
+          const r = imgData[i] >> 3;
+          const g = imgData[i + 1] >> 2;
+          const b = imgData[i + 2] >> 3;
+          const pixel = (r << 11) | (g << 5) | b;
+          rgb565[j] = (pixel >> 8) & 0xff;
+          rgb565[j + 1] = pixel & 0xff;
+        }
+
+        if (statusEl) {
+          statusEl.textContent = `Writing 115 KB RGB565 frame to LittleFS flash...`;
+        }
+
+        api.uploadMedia(rgb565, file.name).then((res) => {
+          const newFile = {
+            name: file.name,
+            size: "115 KB",
+            type: "RGB565 (240×240)",
+            url: previewUrl,
+            active: true,
+          };
+          state = reduce(state, { type: "add-media-file", file: newFile });
+          state = reduce(state, { type: "set-theme", theme: "Photo Frame & Ambient Album" });
+          render();
+          triggerSave(true);
+        }).catch((err) => {
+          if (statusEl) {
+            statusEl.style.background = "#fee2e2";
+            statusEl.style.color = "#b91c1c";
+            statusEl.textContent = `Upload failed: ${err.message}`;
+          }
+        });
+      };
+      img.onerror = () => {
+        if (statusEl) {
+          statusEl.style.background = "#fee2e2";
+          statusEl.style.color = "#b91c1c";
+          statusEl.textContent = "Failed to decode image.";
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Drag and Drop listeners
+  app.addEventListener("dragover", (event) => {
+    const dropzone = event.target.closest("#media-dropzone");
+    if (dropzone) {
+      event.preventDefault();
+      dropzone.classList.add("is-dragover");
+    }
+  });
+
+  app.addEventListener("dragleave", (event) => {
+    const dropzone = event.target.closest("#media-dropzone");
+    if (dropzone) {
+      dropzone.classList.remove("is-dragover");
+    }
+  });
+
+  app.addEventListener("drop", (event) => {
+    const dropzone = event.target.closest("#media-dropzone");
+    if (dropzone) {
+      event.preventDefault();
+      dropzone.classList.remove("is-dragover");
+      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+        handlePhotoUpload(event.dataTransfer.files[0]);
+      }
     }
   });
 

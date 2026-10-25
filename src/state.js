@@ -23,6 +23,8 @@ export function createInitialState() {
         "Minimalist Clean Clock",
         "AI Token & Rate Monitor",
         "Cosmic Shuttle & Prayer Station",
+        "Photo Frame & Ambient Album",
+        "Analog Calendar Clock",
       ],
       nightMode: {
         enabled: true,
@@ -98,6 +100,7 @@ export function createInitialState() {
         minute: "#feba01",
         second: "#ffffff",
       },
+      clockStyle: "digital",
     },
     network: {
       ssid: "Home",
@@ -115,10 +118,11 @@ export function createInitialState() {
     media: {
       autoDisplay: false,
       intervalSeconds: 30,
+      activePhotoUrl: null,
       files: [
-        { name: "cat_retro.gif", size: "84 KB", type: "GIF (240x240)" },
-        { name: "pixel_sunset.jpg", size: "48 KB", type: "JPG (240x240)" },
-        { name: "cyber_grid.gif", size: "112 KB", type: "GIF (240x240)" },
+        { name: "pixel_sunset.jpg", size: "48 KB", type: "JPG (240x240)", active: true },
+        { name: "cat_retro.gif", size: "84 KB", type: "GIF (240x240)", active: false },
+        { name: "cyber_grid.gif", size: "112 KB", type: "GIF (240x240)", active: false },
       ],
     },
     notification: null,
@@ -285,6 +289,48 @@ export function reduce(state, action) {
         ...state.media,
         [action.field]: action.value,
       },
+    };
+  }
+
+  if (action.type === "add-media-file") {
+    const existing = state.media.files.filter((f) => f.name !== action.file.name);
+    return {
+      ...state,
+      media: {
+        ...state.media,
+        activePhotoUrl: action.file.url || state.media.activePhotoUrl,
+        files: [action.file, ...existing],
+      },
+      notification: `Uploaded ${action.file.name} (240×240)`,
+    };
+  }
+
+  if (action.type === "delete-media-file") {
+    const remaining = state.media.files.filter((f) => f.name !== action.name);
+    return {
+      ...state,
+      media: {
+        ...state.media,
+        activePhotoUrl: state.media.activePhotoUrl && remaining.length > 0 ? remaining[0].url : null,
+        files: remaining,
+      },
+      notification: `Removed ${action.name}`,
+    };
+  }
+
+  if (action.type === "set-active-photo") {
+    const updatedFiles = state.media.files.map((f) => ({
+      ...f,
+      active: f.name === action.name,
+    }));
+    return {
+      ...state,
+      media: {
+        ...state.media,
+        activePhotoUrl: action.url || state.media.activePhotoUrl,
+        files: updatedFiles,
+      },
+      notification: `Active photo set to ${action.name}`,
     };
   }
 
