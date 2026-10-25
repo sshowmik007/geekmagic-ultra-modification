@@ -1,0 +1,7 @@
+services:
+  smalltv-collector:
+    # Explicit opt-in only: these folders may contain private transcripts or credentials.
+    volumes:
+      - "${CODEX_HOME:-${USERPROFILE}/.codex}:/data/codex:ro"
+      - "${GEMINI_HOME:-${USERPROFILE}/.gemini}:/data/gemini:ro"
+      - "${CLAUDE_HOME:-${USERPROFILE}/.claude}:/data/claude:ro"

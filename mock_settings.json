@@ -1,20 +1,47 @@
 {
   "display": {
-    "theme": "Weather & Prayer Station",
-    "brightness": 65,
-    "autoSwitch": false,
+    "theme": "AI Token & Rate Monitor",
+    "brightness": 80,
+    "autoSwitch": true,
     "switchInterval": 30,
+    "activeThemes": [
+      "Weather & Prayer Station",
+      "Minimalist Clean Clock",
+      "AI Token & Rate Monitor",
+      "Editorial Weather Clock"
+    ],
     "nightMode": {
       "enabled": true,
       "startTime": "22:00",
       "endTime": "07:00",
       "brightness": 20
-    },
-    "activeThemes": [
-      "Weather Clock Today",
-      "Weather Forecast",
-      "Simple Weather Clock"
-    ]
+    }
+  },
+  "tokens": {
+    "provider": null,
+    "status": "active",
+    "agentState": "UNAVAILABLE",
+    "sessionTokens": null,
+    "sessionLimit": null,
+    "sessionReset": null,
+    "weeklyTokens": null,
+    "weeklyLimit": null,
+    "weeklyReset": null,
+    "tokensPerSec": 0,
+    "lastSync": "Just now",
+    "isLaptopOnline": true,
+    "model": null,
+    "sessionPct": null,
+    "weeklyPct": null,
+    "sessionLabel": "5-HOUR LIMIT",
+    "sessionText": "Unavailable",
+    "weeklyLabel": "WEEKLY LIMIT",
+    "weeklyText": "Unavailable",
+    "telemetryState": "unavailable",
+    "sourceLabel": "No verified provider source",
+    "observedAt": null,
+    "sessionWindowMinutes": null,
+    "weeklyWindowMinutes": null
   },
   "weather": {
     "city": "Dhaka",
@@ -42,7 +69,7 @@
     }
   },
   "network": {
-    "ssid": "Home",
+    "ssid": "NewNetwork",
     "bootDelay": 0,
     "status": "Connected",
     "signal": 68,

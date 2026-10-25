@@ -30,6 +30,17 @@ export const api = {
     }
   },
 
+  async getTokens() {
+    if (!isHttp) return null;
+    try {
+      const res = await fetch("/api/tokens");
+      if (!res.ok) throw new Error("Tokens fetch failed");
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
   async saveSettings(settings) {
     if (!isHttp) {
       return { success: true, message: "Saved to in-memory state (Offline mode)" };
@@ -66,6 +77,16 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ssid, password, bootDelay }),
       });
+      return await res.json();
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async resetDevice() {
+    if (!isHttp) return { success: true, message: "Settings erased (Offline mode)" };
+    try {
+      const res = await fetch("/api/system/reset", { method: "POST" });
       return await res.json();
     } catch (e) {
       return { success: false, error: e.message };

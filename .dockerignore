@@ -1,0 +1,9 @@
+node_modules
+dist
+firmware/.pio
+preview
+releases
+docs
+*.bin
+*.md
+__pycache__

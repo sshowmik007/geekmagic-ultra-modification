@@ -44,6 +44,18 @@ test("display page exposes labelled local-only controls", () => {
   assert.match(markup, /id="auto-switch"/);
 });
 
+test("prayer page formats schedule values as 12-hour times", () => {
+  const state = createInitialState();
+  state.page = "prayer";
+  state.time.hourFormat = "12-Hour";
+  state.prayer.timings.asr = "15:48";
+
+  const markup = renderDashboard(state);
+
+  assert.match(markup, />03:48 PM</);
+  assert.doesNotMatch(markup, />15:48</);
+});
+
 test("system page exposes live firmware upload form and reboot controls", () => {
   const state = reduce(createInitialState(), { type: "navigate", page: "system" });
   const markup = renderDashboard(state);

@@ -13,16 +13,43 @@ const MOCK_STORAGE_FILE = path.join(__dirname, "mock_settings.json");
 // Load persistent mock state if file exists, else use defaults
 let defaultMockSettings = {
   display: {
-    theme: "Weather Clock Today",
+    theme: "Weather & Prayer Station",
     brightness: 65,
     autoSwitch: false,
-    switchInterval: 30,
+    switchInterval: 15,
+    activeThemes: [
+      "Weather & Prayer Station",
+      "Editorial Weather Clock",
+      "Minimalist Clean Clock",
+      "AI Token & Rate Monitor",
+      "Cosmic Shuttle & Prayer Station",
+    ],
     nightMode: {
       enabled: true,
       startTime: "22:00",
       endTime: "07:00",
       brightness: 20,
     },
+  },
+  tokens: {
+    provider: null,
+    model: null,
+    status: "unavailable",
+    telemetryState: "unavailable",
+    sourceLabel: "No verified provider source",
+    observedAt: null,
+    agentState: "UNAVAILABLE",
+    sessionTokens: 0,
+    sessionLimit: null,
+    sessionPct: null,
+    sessionReset: null,
+    weeklyTokens: 0,
+    weeklyLimit: null,
+    weeklyPct: null,
+    weeklyReset: null,
+    tokensPerSec: 0,
+    lastSync: "Just now",
+    isLaptopOnline: true,
   },
   weather: {
     city: "Dhaka",
@@ -126,7 +153,7 @@ export function createServer() {
       if (req.method === "GET" && pathname === "/api/status") {
         const status = {
           model: "SmallTV-Ultra",
-          firmware: "Ultra-V9.0.51",
+          firmware: "Ultra-V9.0.52-Custom",
           chip: "ESP8266EX (80 MHz)",
           flashSize: "4 MB",
           freeHeap: "43.2 KB",
@@ -167,10 +194,42 @@ export function createServer() {
               time: { ...mockSettings.time, ...(data.time || {}) },
               network: { ...mockSettings.network, ...(data.network || {}) },
               media: { ...mockSettings.media, ...(data.media || {}) },
+              tokens: { ...mockSettings.tokens, ...(data.tokens || {}) },
             };
             persistSettings();
             res.writeHead(200);
             res.end(JSON.stringify({ success: true, message: "Settings saved to flash." }));
+          } catch {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: "Invalid JSON format" }));
+          }
+        });
+        return;
+      }
+
+      // 3b. GET /api/tokens
+      if (req.method === "GET" && pathname === "/api/tokens") {
+        res.writeHead(200);
+        res.end(JSON.stringify(mockSettings.tokens || {}));
+        return;
+      }
+
+      // 3c. POST /api/tokens (companion daemon stream)
+      if (req.method === "POST" && pathname === "/api/tokens") {
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            mockSettings.tokens = {
+              ...mockSettings.tokens,
+              ...data,
+              isLaptopOnline: true,
+              lastSync: "Just now",
+            };
+            persistSettings();
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true, message: "Tokens updated." }));
           } catch {
             res.writeHead(400);
             res.end(JSON.stringify({ error: "Invalid JSON format" }));
@@ -253,7 +312,12 @@ export function createServer() {
       const ext = path.extname(filePath).toLowerCase();
       const contentType = mimeTypes[ext] || "application/octet-stream";
 
-      res.writeHead(200, { "Content-Type": contentType });
+      res.writeHead(200, {
+        "Content-Type": contentType,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      });
       fs.createReadStream(filePath).pipe(res);
     });
   });

@@ -9,6 +9,7 @@ node_modules/
 *.log
 *.tmp
 .cache/
+.env
 
 # OS files
 .DS_Store

@@ -4,7 +4,7 @@ export function createInitialState() {
     device: {
       isSample: true,
       model: "SmallTV-Ultra",
-      firmware: "Ultra-V9.0.51",
+      firmware: "Ultra-V9.0.55-Custom",
       chip: "ESP8266EX (80 MHz)",
       flashSize: "4 MB",
       freeHeap: "42.8 KB",
@@ -16,14 +16,44 @@ export function createInitialState() {
       theme: "Weather & Prayer Station",
       brightness: 65,
       autoSwitch: false,
-      switchInterval: 30,
-      activeThemes: ["Weather & Prayer Station", "Editorial Weather Clock", "Minimalist Clean Clock"],
+      switchInterval: 15,
+      activeThemes: [
+        "Weather & Prayer Station",
+        "Editorial Weather Clock",
+        "Minimalist Clean Clock",
+        "AI Token & Rate Monitor",
+        "Cosmic Shuttle & Prayer Station",
+      ],
       nightMode: {
         enabled: true,
         startTime: "22:00",
         endTime: "07:00",
         brightness: 20,
       },
+    },
+    tokens: {
+      provider: null,
+      model: null,
+      status: "idle",
+      agentState: "IDLE", // "IDLE", "WORKING", "WAITING"
+      sessionLabel: "RATE LIMIT",
+      sessionPct: null,
+      sessionTokens: 0,
+      sessionLimit: 0,
+      sessionText: "Unavailable",
+      sessionReset: null,
+      weeklyLabel: "RATE LIMIT",
+      weeklyPct: null,
+      weeklyTokens: 0,
+      weeklyLimit: 0,
+      weeklyText: "Unavailable",
+      weeklyReset: null,
+      tokensPerSec: 0,
+      lastSync: "Just now",
+      isLaptopOnline: false,
+      telemetryState: "unavailable",
+      sourceLabel: "No verified provider source",
+      observedAt: null,
     },
     prayer: {
       enabled: true,
@@ -34,12 +64,13 @@ export function createInitialState() {
       method: "1", // University of Islamic Sciences, Karachi
       asrMethod: "Hanafi",
       timings: {
-        fajr: "04:43",
-        sunrise: "05:59",
-        dhuhr: "11:43",
-        asr: "15:01",
-        maghrib: "17:27",
-        isha: "18:43",
+        fajr: "04:44",
+        sunrise: "06:00",
+        dhuhr: "11:42",
+        asr: "15:48",
+        sunset: "17:24",
+        maghrib: "17:24",
+        isha: "18:40",
       },
       nextWaqt: "Isha",
     },
@@ -124,7 +155,65 @@ export function reduce(state, action) {
       ...state,
       display: {
         ...state.display,
-        autoSwitch: !state.display.autoSwitch,
+        autoSwitch: action.value !== undefined ? Boolean(action.value) : !state.display.autoSwitch,
+      },
+    };
+  }
+
+  if (action.type === "set-switch-interval") {
+    return {
+      ...state,
+      display: {
+        ...state.display,
+        switchInterval: Math.max(5, Number(action.value) || 15),
+      },
+    };
+  }
+
+  if (action.type === "toggle-active-theme") {
+    const list = state.display.activeThemes.includes(action.theme)
+      ? state.display.activeThemes.filter((t) => t !== action.theme)
+      : [...state.display.activeThemes, action.theme];
+    return {
+      ...state,
+      display: {
+        ...state.display,
+        activeThemes: list.length > 0 ? list : [action.theme],
+      },
+    };
+  }
+
+  if (action.type === "set-token-field") {
+    let val = action.value;
+    if (["sessionTokens", "sessionLimit", "weeklyTokens", "weeklyLimit", "tokensPerSec"].includes(action.field)) {
+      val = Number(action.value);
+    }
+    if (action.field === "provider" && typeof val === "string" && val.includes(":")) {
+      const [prov, mdl] = val.split(":");
+      return {
+        ...state,
+        tokens: {
+          ...state.tokens,
+          provider: prov,
+          model: mdl,
+        },
+      };
+    }
+    return {
+      ...state,
+      tokens: {
+        ...state.tokens,
+        [action.field]: val,
+      },
+    };
+  }
+
+  if (action.type === "toggle-laptop-sync") {
+    return {
+      ...state,
+      tokens: {
+        ...state.tokens,
+        isLaptopOnline: action.value !== undefined ? Boolean(action.value) : !state.tokens.isLaptopOnline,
       },
     };
   }

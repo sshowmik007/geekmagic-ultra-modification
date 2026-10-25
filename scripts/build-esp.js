@@ -103,6 +103,12 @@ void serveDashboard(ServerType &server) {
   const headerPath = path.join(distDir, "web_assets.h");
   fs.writeFileSync(headerPath, headerContent);
 
+  // Also write directly to firmware/include/web_assets.h so PlatformIO always embeds the latest web bundle!
+  const firmwareHeaderPath = path.join(rootDir, "firmware", "include", "web_assets.h");
+  if (fs.existsSync(path.dirname(firmwareHeaderPath))) {
+    fs.writeFileSync(firmwareHeaderPath, headerContent);
+  }
+
   const rawKb = (rawBytes.length / 1024).toFixed(2);
   const gzKb = (gzippedBytes.length / 1024).toFixed(2);
   const budgetPercent = ((gzippedBytes.length / 1048576) * 100).toFixed(2);

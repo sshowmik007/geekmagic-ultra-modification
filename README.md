@@ -4,6 +4,8 @@ A complete, production-grade custom firmware and responsive web control dashboar
 
 Featuring **True Inky Black IPS display rendering**, **3 selectable high-contrast themes**, **Islamic Prayer Times (AlAdhan API integration)**, **12h/24h clock and date format organizer**, **captive portal Wi-Fi manager**, and **direct in-browser OTA updates**.
 
+> 🛠️ **Build & Environment Setup Guide:** See [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) for required software, dependencies, and step-by-step compilation instructions.
+
 ---
 
 ## 🌟 Comprehensive Feature List
@@ -13,22 +15,59 @@ Featuring **True Inky Black IPS display rendering**, **3 selectable high-contras
 - **Flicker-Free Rendering**: Eliminated periodic full-screen wipe flickers; the display refreshes only on minute transitions.
 - **Active-Low PWM Brightness**: Hardware-accurate backlight regulation (0–100%) mapped to GPIO 5 (`0` = 100% full bright, `1023` = 0% off).
 
-### 2. Three Selectable Display Themes
+### 2. Five Selectable Display Themes
 1. **Weather & Prayer Station (Theme 1)**:
-   - Dynamic real-time clock (12-Hour with AM/PM pill indicator or 24-Hour).
+   - Dynamic real-time clock (12-Hour with AM/PM pill indicator or 24-Hour) with kinetic blinking colons.
    - Configurable regional date string (e.g. `24 Oct . Fri`).
    - Location weather header (Dhaka / Custom location).
    - Real-time network status tag (`ONLINE` in green or `192.168.4.1` in orange when in AP setup mode).
    - Stylized golden sun and soft cloud illustration.
-   - **5-Waqt Salah Grid Strip**: Displays Fajr, Dhuhr, Asr, Maghrib, and Isha with a highlighted pill badge for the upcoming prayer.
-   - Streamlined 3-column telemetry: **Temperature (°C)**, **Humidity (%)**, and **Sunset** time (wind speed removed for clean visual balance).
+   - **5-Waqt Salah Grid Strip**: Displays Fajr, Dhuhr, Asr, Maghrib, and Isha in clean 12-Hour format with a highlighted pill badge dynamically tracking the upcoming prayer (Dhuhr, Asr, Maghrib, Isha, Fajr).
+   - Streamlined 3-column telemetry: **Temperature (°C)**, **Humidity (%)**, and **Sunset** time in 12-Hour format (e.g., `05:27`).
 2. **Editorial Weather Clock (Theme 2)**:
    - Minimalist Swiss typography with high type-contrast hierarchy.
-   - Massive centered digital clock digits with separator bar.
+   - Massive centered digital clock digits with separator bar and pulsing colons.
    - Single weather hero card showing sky condition, temperature, and humidity.
 3. **Minimalist Clean Clock (Theme 3)**:
    - Ultra-clean aesthetic focusing strictly on time and date.
    - Large centered digital clock, AM/PM tag (in 12h mode), clean full date string, and subtle connectivity dot.
+4. **AI Token & Rate Limit Monitor (Theme 4)**:
+   - Live telemetry monitor for coding agents: **Google Gemini**, **OpenAI / Codex**, **Anthropic Claude**, and **OpenCode**.
+   - Top Header: Monospace digital clock + colored AI Provider pill badge.
+   - **Official Provider Logos**: Precision vector rendering for **Google Gemini** (4-pointed star sparkle), **OpenAI / Codex** (swirl flower knot), **Anthropic Claude** (8-pointed spark), and **OpenCode** (terminal bracket) on both the web simulator and the physical ST7789 LCD.
+   - **Dual Progress Meters**:
+     - **Session Context Window**: Live token count, limit, and reset countdown.
+     - **Daily / Weekly Quota**: Total usage and reset countdown.
+   - **Laptop Companion Dock**: Live agent status (`IDLE`, `WORKING`, `WAITING`).
+5. **Cosmic Shuttle & Prayer Station (Theme 5)**:
+   - **Kinetic Space Shuttle Animation**: Miniature vector orbiter with fiery plasma exhaust trail (`@keyframes thrusterPulse`) and hovering physics (`@keyframes shuttleFloat`) replacing static mosque imagery.
+   - **Full Salah Schedule Table**: Displays `START` and `END` times for all 5 daily prayers (Fajr, Dhuhr, Asr, Maghrib, Isha) in 12-Hour format.
+   - **Dynamic Real-Time Waqt Focusing**: Automatically tracks the current wall-clock time and focuses the active upcoming prayer row (e.g., glows on Dhuhr during morning, switches to Asr, then Maghrib, Isha, Fajr) with a luminous golden border and background gradient.
+   - **Live Countdown Hero Card**: Displays `NEXT: [WAQT] / STARTS IN` with a real-time `HH:MM:SS` countdown timer.
+
+### 3. Real-Time AI Agent Companion (Live Auto-Detection & Multi-Agent Rotation)
+- **Zero Hardcoding**: Real live usage parsed directly from your laptop's local AI agent session logs:
+  - **Google Gemini (Antigravity)**: Reads `~/.gemini/antigravity/brain/*/transcript.jsonl` (sums turn tokens, active prompt usage, and cache reads). Populates model badge (`✦ GEMINI 3.8 FLASH`), 1M context limit (`1,048,576`), and rate-limit countdowns (`5-HOUR LIMIT`, `WEEKLY LIMIT`).
+  - **OpenAI / Codex**: Reads `~/.codex/sessions/**/rollout-*.jsonl` (extracts `model_context_window`, `last_token_usage`, `primary` 5h rate limit %, and `secondary` weekly quota % with live countdowns).
+- **Multi-Agent Auto-Rotation**: In `auto` mode, when both Gemini and Codex (or plugins) have active sessions, the companion smoothly alternates between providers every 10 seconds. You can observe both active agents on your SmallTV display without manual switching!
+- **Local Plugin & CLI Bridge**: Built-in HTTP receiver at `http://127.0.0.1:4310/provider-event` accepting custom agent events and token stats.
+- **Docker Collector (Recommended)**: Run the daemon in an isolated, secure Docker container with zero Python dependencies required on the host:
+  ```powershell
+  cd smalltv-dashboard
+  docker compose -f docker-compose.yml -f docker-compose.local-files.yml up -d
+  ```
+- **Native Windows Execution**:
+  ```powershell
+  # Using the Windows Python Launcher:
+  py companion/companion.py
+  ```
+  *(Or use `companion/start-companion.bat` or `companion/start-companion-silent.vbs` for background startup).*
+
+### 4. Dynamic Theme Looping (Auto-Rotation)
+- **Automatic Sequential Loop**: Cycles through your selected themes automatically after a configurable interval (10s, 15s, 30s, 60s, 120s).
+- **Custom Active Theme Selection**: Interactive checkboxes / chips let you choose exactly which themes participate in the rotation.
+- **In-Browser Real-Time Preview**: When enabled, the web dashboard's live simulation automatically rotates in sync with the hardware.
+- **Animated Colons & Kinetic Motion**: Smooth breathing pulse animation (`kineticPulse`) for digital clock colons across all themes.
 
 ### 3. Date, Time & Timezone Customization
 - **12-Hour vs. 24-Hour Toggle**: Switch between 12-hour format with AM/PM badge and 24-hour military clock.
@@ -71,7 +110,8 @@ smalltv-ultra-main/
 │   │   │   └── main.cpp                       # Core firmware: ST7789 display drivers, themes, REST API, DNS
 │   │   └── platformio.ini                     # Build flags, ST7789 driver pins, TFT_eSPI setup
 │   ├── releases/                              # Production-ready compiled firmware binaries
-│   │   ├── custom_dashboard_firmware.bin      # Latest custom firmware with 3 themes & true black
+│   │   ├── custom_dashboard_firmware_v9.0.64.bin # V9.0.64: Multi-Agent Telemetry, Dynamic Waqt, Kinetic Shuttle
+│   │   ├── custom_dashboard_firmware.bin      # Latest custom firmware release
 │   │   └── STOCK_ROLLBACK_Ultra-V9.0.50.bin   # Original factory firmware for instant rollback
 │   ├── src/                                   # Frontend web application
 │   │   ├── main.js                            # Dashboard UI components & event listeners
@@ -95,8 +135,9 @@ smalltv-ultra-main/
    - **If connected to your router**: Open `http://[DEVICE-IP]/update` (e.g., `http://192.168.0.198/update`).
 3. Click **Choose File** and select:
    ```
-   smalltv-dashboard/releases/custom_dashboard_firmware.bin
+   smalltv-dashboard/releases/custom_dashboard_firmware_v9.0.64.bin
    ```
+   *(MD5: `1CB78828E56DBEE3B478162E4E4E8B6C`, Size: 575,008 bytes)*
 4. Click **Update**. The browser will upload the firmware, and the device will flash and reboot in ~15 seconds.
 5. Once rebooted, visit `http://192.168.4.1/` (or your device IP) to access the dashboard.
 
