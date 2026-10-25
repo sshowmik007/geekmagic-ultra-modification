@@ -9,6 +9,18 @@
 - **Mock Server**: Running at `http://localhost:3000` with live `/api/tokens` REST endpoints.
 - **Build Verification**: PlatformIO build succeeded; binary validator confirmed the ESP8266 header and 54.5% OTA partition usage. All 14 Node tests and the Codex companion regression test passed.
 
+### Version 9.0.65 UI & Model Parity Update (October 25, 2026 — built & validated)
+- **Physical ST7789 Display & Web UI Parity**:
+  - `renderThemeTokenMonitor()` in `main.cpp` now renders the authentic model sub-badge (e.g. `[ GPT-5.6-LUNA ]` or `[ 3.8 FLASH ]`) directly inside the top-right pill beside the provider name, matching the web simulator.
+  - Added the official 6-spoke spiral rosette for OpenAI/Codex, refined 4-pointed sparkle for Gemini, and 8-pointed star for Claude on hardware ST7789 display.
+- **AI Model Visibility in Telemetry Tables**:
+  - Added dedicated **Live AI Telemetry** table (`Active AI Agent & Model`) to both Overview and Display tabs, displaying AI Provider, Active AI Model, Agent Live Status, Session Context, Turn Tokens, Total Tokens, and Telemetry Source.
+  - Added dynamic real-time DOM updater in `updateTokenControls` so whenever live telemetry arrives from the companion daemon, the table fields immediately update without page refresh or flicker.
+- **Official SVGs from svglogos.dev**:
+  - Integrated official SVG logomarks for OpenAI, Google Gemini, and Anthropic Claude directly from `svglogos.dev`.
+- **Pre-flash Binary Safety**:
+  - Binary `custom_dashboard_firmware_v9.0.65.bin` and `custom_dashboard_firmware.bin` (582,576 bytes, MD5 `946cfcb499031a9ed26eb3a01b819628`, 55.6% OTA partition usage) built and validated.
+
 ### Version 9.0.59 prayer display correction (October 25, 2026 — built, not flashed)
 - The live device was confirmed on an earlier v9.0.58 build, but `/api/settings` still returned the old seeded Asr `15:01` and the Prayer Times page rendered raw 24-hour values.
 - The Prayer Times page now follows `12-Hour` mode explicitly and includes AM/PM; Dhaka Hanafi Asr renders as `03:48 PM`.

@@ -46,6 +46,32 @@ function updateTokenControls(tokens) {
   if (weeklyOutput) weeklyOutput.textContent = tokens.weeklyPct == null || Number(tokens.weeklyPct) < 0 ? "Unavailable" : `${tokens.weeklyPct}% (${tokens.weeklyReset || "--"})`;
   const weeklyRange = document.querySelector("#weekly-tokens");
   if (weeklyRange) weeklyRange.value = tokens.weeklyPct ?? 0;
+
+  // Live Telemetry Table Elements (Overview & Display tabs)
+  document.querySelectorAll("[data-telemetry='provider']").forEach((el) => {
+    el.textContent = tokens.provider || "Waiting for stream";
+  });
+  document.querySelectorAll("[data-telemetry='model']").forEach((el) => {
+    el.textContent = tokens.model || "Waiting for sync";
+  });
+  document.querySelectorAll("[data-telemetry='agentState']").forEach((el) => {
+    el.textContent = tokens.agentState || "IDLE";
+  });
+  document.querySelectorAll("[data-telemetry='sessionTokens']").forEach((el) => {
+    el.textContent = tokens.sessionTokens ? `${tokens.sessionTokens.toLocaleString()} tok` : "--";
+  });
+  document.querySelectorAll("[data-telemetry='weeklyTokens']").forEach((el) => {
+    el.textContent = tokens.weeklyTokens ? `${tokens.weeklyTokens.toLocaleString()} tok` : "--";
+  });
+  document.querySelectorAll("[data-telemetry='sessionPct']").forEach((el) => {
+    el.textContent = tokens.sessionPct != null ? `${tokens.sessionPct}% (${tokens.sessionReset || "--"})` : "Unavailable";
+  });
+  document.querySelectorAll("[data-telemetry='weeklyPct']").forEach((el) => {
+    el.textContent = tokens.weeklyPct != null ? `${tokens.weeklyPct}% (${tokens.weeklyReset || "--"})` : "Unavailable";
+  });
+  document.querySelectorAll("[data-telemetry='sourceLabel']").forEach((el) => {
+    el.textContent = tokens.sourceLabel || "Local companion stream";
+  });
 }
 
 export function getUsageColor(pct) {
@@ -202,17 +228,17 @@ function renderThemeSimulation(state) {
       : `${((tokens.weeklyTokens || 0) / 1000).toFixed(0)}k / ${((tokens.weeklyLimit || 0) / 1000000).toFixed(1)}M tok`))));
 
     let pillClass = "pill-claude";
-    let pillLogo = `<svg width="11" height="11" viewBox="0 0 50 50" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M19.861,27.625v-0.716l-16.65-0.681L2.07,25.985L1,24.575l0.11-0.703l0.959-0.645l17.95,1.345l0.11-0.314L5.716,14.365l-0.729-0.924l-0.314-2.016L5.985,9.98l2.214,0.24l11.312,8.602l0.327-0.353L12.623,5.977c0,0-0.548-2.175-0.548-2.697l1.494-2.029l0.827-0.266l2.833,0.995l7.935,17.331h0.314l1.348-14.819l0.752-1.822l1.494-0.985l1.167,0.557l0.959,1.374l-2.551,14.294h0.425l0.486-0.486l8.434-10.197l1.092-0.862h2.065l1.52,2.259l-0.681,2.334l-7.996,11.108l0.146,0.217l0.376-0.036l12.479-2.405l1.666,0.778l0.182,0.791l-0.655,1.617l-15.435,3.523l-0.084,0.062l0.097,0.12l13.711,0.814l1.578,1.044L49,29.868l-0.159,0.972l-2.431,1.238l-13.561-3.254h-0.363v0.217l11.218,10.427l0.256,1.154l-0.645,0.911l-0.681-0.097l-9.967-8.058h-0.256v0.34l5.578,8.35l0.243,2.162l-0.34,0.703l-1.215,0.425l-1.335-0.243l-7.863-12.083l-0.279,0.159l-1.348,14.524l-0.632,0.742l-1.459,0.558l-1.215-0.924L21.9,46.597l2.966-14.939l-0.023-0.084l-0.279,0.036L13.881,45.138l-0.827,0.327l-1.433-0.742l0.133-1.326l0.801-1.18l9.52-12.019l-0.013-0.314h-0.11l-12.69,8.239l-2.259,0.292L6.03,37.505l0.12-1.494l0.46-0.486L19.861,27.625z"/></svg>`;
+    let pillLogo = `<svg width="12" height="12" viewBox="0 0 256 257" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M50.228 170.321L100.585 142.064L101.428 139.601L100.585 138.24L98.123 138.24L89.697 137.722L60.922 136.944L35.97 135.907L11.795 134.611L5.703 133.314L0 125.796L0.583 122.037L5.703 118.603L13.027 119.251L29.229 120.352L53.533 122.037L71.162 123.074L97.28 125.796L101.428 125.796L102.011 124.111L100.585 123.074L99.484 122.037L74.337 104.992L47.117 86.975L32.859 76.606L25.146 71.356L21.258 66.43L19.573 55.672L26.572 47.959L35.97 48.608L38.368 49.256L47.895 56.579L68.245 72.328L94.817 91.901L98.706 95.141L100.261 94.039L100.456 93.262L98.706 90.345L84.253 64.227L68.828 37.655L61.958 26.637L60.144 20.026C59.496 17.304 59.042 15.036 59.042 12.249L67.014 1.426L71.421 0L82.05 1.426L86.522 5.314L93.132 20.415L103.826 44.201L120.417 76.541L125.278 86.133L127.87 95.012L128.843 97.734L130.528 97.734L130.528 96.178L131.889 77.967L134.416 55.607L136.879 26.831L137.722 18.73L141.74 9.009L149.711 3.759L155.933 6.74L161.053 14.064L160.34 18.795L157.294 38.562L151.332 69.541L147.443 90.281L149.711 90.281L152.304 87.688L162.803 73.754L180.431 51.718L188.209 42.969L197.282 33.312L203.115 28.711L214.133 28.711L222.234 40.766L218.605 53.209L207.263 67.597L197.865 79.781L184.385 97.928L175.959 112.446L176.737 113.612L178.746 113.418L209.207 106.937L225.669 103.955L245.306 100.585L254.185 104.733L255.157 108.946L251.658 117.566L230.659 122.75L206.031 127.676L169.349 136.361L168.895 136.685L169.414 137.333L185.94 138.888L193.005 139.277L210.309 139.277L242.519 141.675L250.945 147.249L256 154.054L255.157 159.238L242.195 165.849L224.697 161.701L183.866 151.98L169.867 148.48L167.923 148.48L167.923 149.647L179.589 161.053L200.976 180.367L227.743 205.254L229.104 211.411L225.669 216.271L222.039 215.753L198.513 198.06L189.44 190.088L168.895 172.784L167.534 172.784L167.534 174.598L172.265 181.533L197.282 219.123L198.578 230.659L196.764 234.418L190.283 236.687L183.153 235.39L168.506 214.846L153.406 191.708L141.221 170.969L139.731 171.812L132.537 249.26L129.167 253.213L121.389 256.194L114.908 251.269L111.473 243.297L114.908 227.548L119.056 207.004L122.426 190.671L125.472 170.386L127.287 163.646L127.157 163.192L125.667 163.386L110.372 184.385L87.105 215.818L68.699 235.52L64.292 237.27L56.644 233.316L57.357 226.252L61.634 219.966L87.105 187.561L102.465 167.469L112.381 155.868L112.316 154.183L111.733 154.183L44.071 198.125L32.016 199.68L26.831 194.819L27.479 186.848L29.942 184.255L50.293 170.256Z"/></svg>`;
     const pLow = (tokens.provider || "Gemini").toLowerCase();
     if (pLow.includes("gemini")) {
       pillClass = "pill-gemini";
-      pillLogo = `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>`;
+      pillLogo = `<svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M128 0C130.686 0 133.02 1.833 133.676 4.437C135.683 12.402 138.301 20.17 141.56 27.728C150.048 47.45 161.7 64.71 176.49 79.5C191.28 94.29 208.54 105.94 228.27 114.43C235.83 117.69 243.6 120.31 251.56 122.32C254.167 122.976 256 125.31 256 128C256 130.69 254.167 133.024 251.56 133.68C243.6 135.69 235.83 138.31 228.27 141.57C208.54 150.06 191.28 161.71 176.49 176.5C161.7 191.29 150.048 208.55 141.56 228.27C138.301 235.83 135.683 243.6 133.676 251.56C133.02 254.167 130.686 256 128 256C125.314 256 122.98 254.167 122.324 251.56C120.317 243.6 117.699 235.83 114.44 228.27C105.952 208.55 94.3 191.29 79.51 176.5C64.72 161.71 47.46 150.06 27.73 141.57C20.17 138.31 12.4 135.69 4.44 133.68C1.833 133.024 0 130.69 0 128C0 125.31 1.833 122.976 4.44 122.32C12.4 120.31 20.17 117.69 27.73 114.43C47.46 105.94 64.72 94.29 79.51 79.5C94.3 64.71 105.952 47.45 114.44 27.728C117.699 20.17 120.317 12.402 122.324 4.437C122.98 1.833 125.314 0 128 0Z"/></svg>`;
     } else if (pLow.includes("open") || pLow.includes("codex") || pLow.includes("gpt")) {
       pillClass = "pill-openai";
-      pillLogo = `<svg width="11" height="11" viewBox="0 0 256 260" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.051 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/></svg>`;
+      pillLogo = `<svg width="12" height="12" viewBox="0 0 256 260" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.051 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/></svg>`;
     } else if (pLow.includes("opencode")) {
       pillClass = "pill-opencode";
-      pillLogo = `<svg width="11" height="11" viewBox="0 0 240 300" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M0 0H240V60H0ZM0 0H60V300H0ZM180 0H240V300H180ZM0 240H240V300H0Z"/><path fill-opacity="0.5" d="M60 120H180V240H60Z"/></svg>`;
+      pillLogo = `<svg width="12" height="12" viewBox="0 0 240 300" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M0 0H240V60H0ZM0 0H60V300H0ZM180 0H240V300H180ZM0 240H240V300H0Z"/><path fill-opacity="0.5" d="M60 120H180V240H60Z"/></svg>`;
     }
 
     return `
@@ -648,13 +674,31 @@ function overviewContent(state) {
       </div>
     </section>
 
+    <section class="details-panel" aria-labelledby="ai-telemetry-title">
+      <div>
+        <p class="section-kicker">Live AI Telemetry</p>
+        <h2 id="ai-telemetry-title">Active AI Agent & Model</h2>
+      </div>
+      <dl class="details-list">
+        <div><dt>AI Provider</dt><dd><strong data-telemetry="provider">${escapeHtml(state.tokens.provider || "Waiting for stream")}</strong></dd></div>
+        <div><dt>Active AI Model</dt><dd><span class="tag-badge font-mono" style="font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px;" data-telemetry="model">${escapeHtml(state.tokens.model || "Waiting for sync")}</span></dd></div>
+        <div><dt>Agent Live Status</dt><dd><span class="status-indicator ${state.tokens.agentState === "WORKING" ? "is-working" : (state.tokens.isLaptopOnline ? "is-online" : "is-idle")}"></span> <span data-telemetry="agentState">${escapeHtml(state.tokens.agentState || "IDLE")}</span></dd></div>
+        <div><dt>${escapeHtml(state.tokens.sessionLabel || "5-Hour Limit")}</dt><dd data-telemetry="sessionPct">${state.tokens.sessionPct != null ? `${state.tokens.sessionPct}% (${state.tokens.sessionReset || "--"})` : "Unavailable"}</dd></div>
+        <div><dt>${escapeHtml(state.tokens.weeklyLabel || "Weekly Limit")}</dt><dd data-telemetry="weeklyPct">${state.tokens.weeklyPct != null ? `${state.tokens.weeklyPct}% (${state.tokens.weeklyReset || "--"})` : "Unavailable"}</dd></div>
+        <div><dt>Active Turn Tokens</dt><dd data-telemetry="sessionTokens">${state.tokens.sessionTokens ? `${state.tokens.sessionTokens.toLocaleString()} tok` : "--"}</dd></div>
+        <div><dt>Session Total Tokens</dt><dd data-telemetry="weeklyTokens">${state.tokens.weeklyTokens ? `${state.tokens.weeklyTokens.toLocaleString()} tok` : "--"}</dd></div>
+        <div><dt>Telemetry Source</dt><dd><code data-telemetry="sourceLabel">${escapeHtml(state.tokens.sourceLabel || "Local companion stream")}</code></dd></div>
+      </dl>
+    </section>
+
     <section class="details-panel" aria-labelledby="device-summary-title">
       <div>
         <p class="section-kicker">Device summary</p>
         <h2 id="device-summary-title">Hardware & Firmware Telemetry</h2>
       </div>
       <dl class="details-list">
-        <div><dt>Model</dt><dd>${state.device.model}</dd></div>
+        <div><dt>Hardware Model</dt><dd>${state.device.model}</dd></div>
+        <div><dt>Active AI Model</dt><dd><strong data-telemetry="model">${escapeHtml(state.tokens.model || "None")}</strong></dd></div>
         <div><dt>Firmware</dt><dd>${state.device.firmware}</dd></div>
         <div><dt>SoC / MCU</dt><dd>${state.device.chip}</dd></div>
         <div><dt>Flash Memory</dt><dd>${state.device.flashSize}</dd></div>
@@ -669,7 +713,7 @@ function overviewContent(state) {
 function displayContent(state) {
   const knownTokenModels = [
     "Gemini 3.8 Flash", "Gemini 3.8 Pro", "Gemini 3.0 Ultra", "Gemini 2.5 Flash",
-    "GPT-5.6-Terra", "o3-mini", "o1-preview", "GPT-4.1-turbo",
+    "GPT-5.6-LUNA", "GPT-5.6-Terra", "o3-mini", "o1-preview", "GPT-4.1-turbo",
     "Claude 3.7 Sonnet", "Claude 3.5 Sonnet", "Claude 3.5 Haiku",
     "DeepSeek-R1", "Qwen-2.5-Coder-32B",
   ];
@@ -793,6 +837,7 @@ function displayContent(state) {
               <option value="Gemini:Gemini 2.5 Flash"${state.tokens.model === "Gemini 2.5 Flash" ? " selected" : ""}>Gemini 2.5 Flash</option>
             </optgroup>
             <optgroup label="OpenAI / Codex (Current Active)">
+              <option value="OpenAI / Codex:GPT-5.6-LUNA"${(state.tokens.provider === "Codex" || state.tokens.provider === "OpenAI / Codex") && state.tokens.model === "GPT-5.6-LUNA" ? " selected" : ""}>GPT-5.6-LUNA (Codex Active)</option>
               <option value="OpenAI / Codex:GPT-5.6-Terra"${(state.tokens.provider === "Codex" || state.tokens.provider === "OpenAI / Codex") && state.tokens.model === "GPT-5.6-Terra" ? " selected" : ""}>GPT-5.6-Terra (Codex Active)</option>
               <option value="OpenAI / Codex:o3-mini"${state.tokens.model === "o3-mini" ? " selected" : ""}>o3-mini (High Reasoning)</option>
               <option value="OpenAI / Codex:o1-preview"${state.tokens.model === "o1-preview" ? " selected" : ""}>o1-preview</option>
@@ -840,6 +885,18 @@ function displayContent(state) {
           </label>
           <input id="weekly-tokens" type="range" min="0" max="100" value="${state.tokens.weeklyPct ?? 0}" class="slider" disabled />
         </div>
+      </div>
+
+      <div style="margin-top: 1.25rem;">
+        <span style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 0.5rem; color: var(--color-ink);">Live Agent & Model Telemetry</span>
+        <dl class="details-list">
+          <div><dt>Detected Provider</dt><dd><strong data-telemetry="provider">${escapeHtml(state.tokens.provider || "None")}</strong></dd></div>
+          <div><dt>Active AI Model</dt><dd><span class="tag-badge font-mono" style="font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px;" data-telemetry="model">${escapeHtml(state.tokens.model || "Waiting for sync")}</span></dd></div>
+          <div><dt>Agent Live Status</dt><dd><span class="status-indicator ${state.tokens.agentState === "WORKING" ? "is-working" : (state.tokens.isLaptopOnline ? "is-online" : "is-idle")}"></span> <span data-telemetry="agentState">${escapeHtml(state.tokens.agentState || "IDLE")}</span></dd></div>
+          <div><dt>Session Context</dt><dd data-telemetry="sessionTokens">${state.tokens.sessionTokens ? `${state.tokens.sessionTokens.toLocaleString()} / ${state.tokens.sessionLimit ? state.tokens.sessionLimit.toLocaleString() : "--"} tok` : "--"}</dd></div>
+          <div><dt>Session Total</dt><dd data-telemetry="weeklyTokens">${state.tokens.weeklyTokens ? `${state.tokens.weeklyTokens.toLocaleString()} tok` : "--"}</dd></div>
+          <div><dt>Observed Source</dt><dd><code data-telemetry="sourceLabel">${escapeHtml(state.tokens.sourceLabel || "Local companion stream")}</code></dd></div>
+        </dl>
       </div>
 
       <details style="background: #f8fafc; border: 1px solid var(--color-line); border-radius: 6px; padding: 0.85rem; margin-top: 1rem; font-size: 0.8rem; min-width: 0; max-width: 100%; box-sizing: border-box; overflow-x: auto;">

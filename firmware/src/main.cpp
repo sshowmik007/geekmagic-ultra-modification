@@ -605,7 +605,7 @@ void renderThemeTokenMonitor() {
     tft.drawString(ampmStr, tft.textWidth(timeStr, 4) + 16, 12, 2);
   }
 
-  // Provider Pill Tag (top-right)
+  // Provider Pill Tag (top-right) with Model Sub-Badge
   uint16_t pillBg = 0x2124;
   uint16_t pillText = TFT_WHITE;
   if (strstr(tokenCache.provider, "Claude")) {
@@ -622,38 +622,91 @@ void renderThemeTokenMonitor() {
     pillText = 0xBDF7;
   }
 
-  int pillW = tft.textWidth(tokenCache.provider, 2) + 26;
+  char modelClean[24] = "";
+  if (strlen(tokenCache.model) > 0 && strcmp(tokenCache.model, "null") != 0 && strcmp(tokenCache.model, "Model unavailable") != 0) {
+    const char* m = tokenCache.model;
+    if (strncmp(m, "Gemini ", 7) == 0) m += 7;
+    else if (strncmp(m, "Claude ", 7) == 0) m += 7;
+    strlcpy(modelClean, m, sizeof(modelClean));
+  }
+
+  int timeW = tft.textWidth(timeStr, 4);
+  int ampmW = (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) ? (tft.textWidth(ampmStr, 2) + 4) : 0;
+  int timeRight = 12 + timeW + ampmW + 4;
+
+  int provW = tft.textWidth(tokenCache.provider, 2);
+  bool hasModel = strlen(modelClean) > 0;
+  int modelTextW = hasModel ? tft.textWidth(modelClean, 1) : 0;
+  int modelBadgeW = hasModel ? (modelTextW + 8) : 0;
+
+  // If combined width exceeds bounds, shorten prefix
+  if (hasModel && (timeRight + 22 + provW + modelBadgeW > 228)) {
+    if (strncmp(modelClean, "GPT-", 4) == 0) {
+      char tmp[24];
+      strlcpy(tmp, modelClean + 4, sizeof(tmp));
+      strlcpy(modelClean, tmp, sizeof(modelClean));
+      modelTextW = tft.textWidth(modelClean, 1);
+      modelBadgeW = modelTextW + 8;
+    }
+  }
+
+  int pillW = 22 + provW + (hasModel ? (4 + modelBadgeW) : 0);
   int pillX = 228 - pillW;
+  if (pillX < timeRight) {
+    pillX = timeRight;
+    pillW = 228 - pillX;
+  }
+
   tft.fillRoundRect(pillX, 10, pillW, 20, 6, pillBg);
   tft.drawRoundRect(pillX, 10, pillW, 20, 6, pillText);
 
   // Draw actual provider icon
-  int iconX = pillX + 10;
+  int iconX = pillX + 9;
   int iconY = 20;
   if (strstr(tokenCache.provider, "Gemini")) {
     // 4-pointed Gemini star sparkle
-    tft.fillTriangle(iconX, iconY - 5, iconX - 2, iconY, iconX + 2, iconY, pillText);
-    tft.fillTriangle(iconX, iconY + 5, iconX - 2, iconY, iconX + 2, iconY, pillText);
-    tft.fillTriangle(iconX - 5, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
-    tft.fillTriangle(iconX + 5, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
+    tft.fillTriangle(iconX, iconY - 6, iconX - 2, iconY, iconX + 2, iconY, pillText);
+    tft.fillTriangle(iconX, iconY + 6, iconX - 2, iconY, iconX + 2, iconY, pillText);
+    tft.fillTriangle(iconX - 6, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
+    tft.fillTriangle(iconX + 6, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
   } else if (strstr(tokenCache.provider, "Open") || strstr(tokenCache.provider, "Codex") || strstr(tokenCache.provider, "GPT")) {
-    // Codex flower knot
-    tft.drawCircle(iconX, iconY, 4, pillText);
-    tft.fillCircle(iconX, iconY, 2, pillText);
+    // 6-lobed spiral rosette (OpenAI logo)
+    for (int a = 0; a < 360; a += 60) {
+      float rad = a * 0.01745329f;
+      float rad2 = (a + 40) * 0.01745329f;
+      int x1 = iconX + (int)(cos(rad) * 1.8f);
+      int y1 = iconY + (int)(sin(rad) * 1.8f);
+      int x2 = iconX + (int)(cos(rad2) * 5.0f);
+      int y2 = iconY + (int)(sin(rad2) * 5.0f);
+      tft.drawLine(x1, y1, x2, y2, pillText);
+    }
+    tft.drawCircle(iconX, iconY, 1, pillText);
   } else if (strstr(tokenCache.provider, "Claude")) {
     // Claude 8-pointed star
-    tft.drawFastHLine(iconX - 4, iconY, 9, pillText);
-    tft.drawFastVLine(iconX, iconY - 4, 9, pillText);
-    tft.drawLine(iconX - 3, iconY - 3, iconX + 3, iconY + 3, pillText);
-    tft.drawLine(iconX - 3, iconY + 3, iconX + 3, iconY - 3, pillText);
+    tft.drawFastHLine(iconX - 5, iconY, 11, pillText);
+    tft.drawFastVLine(iconX, iconY - 5, 11, pillText);
+    tft.drawLine(iconX - 4, iconY - 4, iconX + 4, iconY + 4, pillText);
+    tft.drawLine(iconX - 4, iconY + 4, iconX + 4, iconY - 4, pillText);
   } else {
     // OpenCode bracket
-    tft.drawRect(iconX - 3, iconY - 4, 7, 9, pillText);
+    tft.drawRect(iconX - 4, iconY - 4, 8, 9, pillText);
   }
 
   tft.setTextDatum(ML_DATUM);
   tft.setTextColor(pillText, pillBg);
-  tft.drawString(tokenCache.provider, pillX + 20, 20, 2);
+  tft.drawString(tokenCache.provider, pillX + 18, 20, 2);
+
+  // Model Sub-Badge Pill
+  if (hasModel && (pillX + 18 + provW + 4 + modelBadgeW <= 228)) {
+    int badgeX = pillX + 18 + provW + 4;
+    int badgeY = 13;
+    int badgeH = 14;
+    tft.fillRoundRect(badgeX, badgeY, modelBadgeW, badgeH, 3, TFT_BLACK);
+    tft.drawRoundRect(badgeX, badgeY, modelBadgeW, badgeH, 3, pillText);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(pillText, TFT_BLACK);
+    tft.drawString(modelClean, badgeX + (modelBadgeW / 2), badgeY + (badgeH / 2), 1);
+  }
 
   // Hairline separator
   tft.drawFastHLine(12, 42, 216, 0x2965);
