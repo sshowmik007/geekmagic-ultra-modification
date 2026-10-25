@@ -7,6 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
+// Live-only by default: the local dashboard proxies the real device and never invents telemetry.
+const DEVICE_BASE_URL = (process.env.SMALLTV_DEVICE_URL || `http://${process.env.SMALLTV_IP || "192.168.0.198"}`).replace(/\/$/, "");
 
 const MOCK_STORAGE_FILE = path.join(__dirname, "mock_settings.json");
 
@@ -25,6 +27,10 @@ let defaultMockSettings = {
       "Cosmic Shuttle & Prayer Station",
       "Photo Frame & Ambient Album",
       "Analog Calendar Clock",
+      "Network Health Monitor",
+      "Now Playing",
+      "Focus Timer",
+      "Notifications & Diagnostics",
     ],
     nightMode: {
       enabled: true,
@@ -151,6 +157,28 @@ export function createServer() {
     // --- REST API ROUTES ---
     if (pathname.startsWith("/api/")) {
       res.setHeader("Content-Type", "application/json");
+
+      // Forward every dashboard API call to the ESP8266. A failed device request is
+      // surfaced as unavailable instead of falling back to mock_settings.json.
+      try {
+        const body = req.method === "GET" || req.method === "HEAD" ? undefined : await new Promise((resolve) => {
+          const chunks = [];
+          req.on("data", (chunk) => chunks.push(chunk));
+          req.on("end", () => resolve(Buffer.concat(chunks)));
+        });
+        const upstream = await fetch(`${DEVICE_BASE_URL}${pathname}${url.search}`, {
+          method: req.method,
+          headers: req.headers["content-type"] ? { "content-type": req.headers["content-type"] } : undefined,
+          body,
+        });
+        const payload = Buffer.from(await upstream.arrayBuffer());
+        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+        res.end(payload);
+      } catch (error) {
+        res.writeHead(503);
+        res.end(JSON.stringify({ error: "SmallTV device unavailable", device: DEVICE_BASE_URL, detail: error.message }));
+      }
+      return;
 
       // 1. GET /api/status
       if (req.method === "GET" && pathname === "/api/status") {

@@ -73,6 +73,10 @@ struct Config {
   char timezone[32] = "UTC+6:00";
   int tzOffsetMinutes = 360; // +6 hours
   char ntpServer[40] = "pool.ntp.org";
+  char nowPlayingTitle[64] = "No title connected";
+  char nowPlayingSource[32] = "Metadata bridge";
+  int focusMinutes = 25;
+  char notificationText[64] = "All systems nominal";
 } deviceConfig;
 
 // Live AI token usage telemetry cache
@@ -108,9 +112,13 @@ const char* const allThemes[] = {
   "AI Token & Rate Monitor",
   "Cosmic Shuttle & Prayer Station",
   "Photo Frame & Ambient Album",
-  "Analog Calendar Clock"
+  "Analog Calendar Clock",
+  "Network Health Monitor",
+  "Now Playing",
+  "Focus Timer",
+  "Notifications & Diagnostics"
 };
-const int NUM_THEMES = 7;
+const int NUM_THEMES = 11;
 
 // Live prayer times cache (Dhaka defaults)
 struct PrayerTimes {
@@ -167,6 +175,10 @@ void loadConfig() {
           deviceConfig.tzOffsetMinutes = parseTimezoneOffset(deviceConfig.timezone);
         }
         if (doc["ntpServer"].is<const char*>()) strlcpy(deviceConfig.ntpServer, doc["ntpServer"], sizeof(deviceConfig.ntpServer));
+        if (doc["media"]["nowPlaying"]["title"].is<const char*>()) strlcpy(deviceConfig.nowPlayingTitle, doc["media"]["nowPlaying"]["title"], sizeof(deviceConfig.nowPlayingTitle));
+        if (doc["media"]["nowPlaying"]["source"].is<const char*>()) strlcpy(deviceConfig.nowPlayingSource, doc["media"]["nowPlaying"]["source"], sizeof(deviceConfig.nowPlayingSource));
+        if (doc["focus"]["minutes"].is<int>()) deviceConfig.focusMinutes = constrain((int)doc["focus"]["minutes"], 1, 120);
+        if (doc["notificationCenter"]["message"].is<const char*>()) strlcpy(deviceConfig.notificationText, doc["notificationCenter"]["message"], sizeof(deviceConfig.notificationText));
         if (doc["ssid"].is<const char*>()) strlcpy(deviceConfig.ssid, doc["ssid"], sizeof(deviceConfig.ssid));
         if (doc["password"].is<const char*>()) strlcpy(deviceConfig.password, doc["password"], sizeof(deviceConfig.password));
         
@@ -197,6 +209,10 @@ void saveConfig() {
     doc["ntpServer"] = deviceConfig.ntpServer;
     doc["ssid"] = deviceConfig.ssid;
     doc["password"] = deviceConfig.password;
+    doc["media"]["nowPlaying"]["title"] = deviceConfig.nowPlayingTitle;
+    doc["media"]["nowPlaying"]["source"] = deviceConfig.nowPlayingSource;
+    doc["focus"]["minutes"] = deviceConfig.focusMinutes;
+    doc["notificationCenter"]["message"] = deviceConfig.notificationText;
 
     JsonObject p = doc["prayer"].to<JsonObject>();
     p["city"] = deviceConfig.city;
@@ -1230,7 +1246,7 @@ void renderThemeAnalogCalendar() {
   tft.setTextColor(WiFi.status() == WL_CONNECTED ? TFT_GREEN : 0x7BEF, TFT_BLACK);
   tft.drawString(WiFi.status() == WL_CONNECTED ? "LIVE" : "OFFLINE", 230, 9, 1);
 
-  const int cx = 120, cy = 81, radius = 49;
+  const int cx = 120, cy = 76, radius = 61;
   tft.fillCircle(cx, cy, radius, 0x0861);
   tft.drawCircle(cx, cy, radius, 0xFDA0);
   tft.drawCircle(cx, cy, radius - 4, 0x2124);
@@ -1238,8 +1254,8 @@ void renderThemeAnalogCalendar() {
     float angle = (i * 30 - 90) * 0.01745329f;
     int x1 = cx + (int)(cos(angle) * (radius - 8));
     int y1 = cy + (int)(sin(angle) * (radius - 8));
-    int x2 = cx + (int)(cos(angle) * (radius - 13));
-    int y2 = cy + (int)(sin(angle) * (radius - 13));
+    int x2 = cx + (int)(cos(angle) * (radius - 15));
+    int y2 = cy + (int)(sin(angle) * (radius - 15));
     tft.drawLine(x1, y1, x2, y2, 0x9CD3);
   }
   float hourAngle = ((hour % 12) + minute / 60.0f) * 30.0f - 90.0f;
@@ -1251,30 +1267,59 @@ void renderThemeAnalogCalendar() {
     int y = cy + (int)(sin(angle) * length);
     for (int offset = 0; offset < width; offset++) tft.drawLine(cx + offset, cy, x + offset, y, color);
   };
-  hand(hourAngle, 25, TFT_WHITE, 3);
-  hand(minuteAngle, 35, 0xFDA0, 2);
-  hand(secondAngle, 40, 0x3DFE, 1);
-  tft.fillCircle(cx, cy, 3, 0xFDA0);
+  hand(hourAngle, 32, TFT_WHITE, 4);
+  hand(minuteAngle, 44, 0xFDA0, 2);
+  hand(secondAngle, 53, 0x3DFE, 1);
+  tft.fillCircle(cx, cy, 4, 0xFDA0);
 
   char bangla[32], hijri[32], english[32];
   getCalendarDates(bangla, sizeof(bangla), hijri, sizeof(hijri), english, sizeof(english));
-  tft.drawFastHLine(10, 137, 220, 0x2965);
+  tft.drawFastHLine(10, 135, 220, 0x2965);
   tft.setTextDatum(TL_DATUM);
   tft.setTextColor(0xFDA0, TFT_BLACK);
   tft.drawString("BAN", 10, 145, 1);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(bangla, 38, 145, 1);
+  tft.drawString(bangla, 42, 149, 1);
   tft.setTextColor(0x3DFE, TFT_BLACK);
-  tft.drawString("HIJ", 10, 161, 1);
+  tft.drawString("HIJ", 10, 166, 1);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(hijri, 38, 161, 1);
+  tft.drawString(hijri, 42, 166, 1);
   tft.setTextColor(0x9CD3, TFT_BLACK);
-  tft.drawString("EN", 10, 177, 1);
+  tft.drawString("EN", 10, 183, 1);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(english, 38, 177, 1);
-  tft.setTextColor(0x7BEF, TFT_BLACK);
-  tft.setTextDatum(TC_DATUM);
-  tft.drawString("ANALOG CALENDAR", 120, 207, 1);
+  tft.drawString(english, 42, 183, 1);
+}
+
+// Compact no-extra-hardware utility themes. They intentionally use existing device telemetry.
+void renderThemeFeatureCard() {
+  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(0x3DFE, TFT_BLACK);
+  if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0) {
+    tft.drawString("NETWORK HEALTH", 12, 12, 2);
+    tft.setTextColor(0xFDA0, TFT_BLACK);
+    tft.drawString(String(WiFi.RSSI()) + " dBm", 12, 42, 4);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE", 12, 88, 2);
+    tft.drawString(WiFi.localIP().toString(), 12, 116, 2);
+    tft.drawString("UPTIME " + String(millis() / 60000) + " MIN", 12, 164, 2);
+  } else if (strcmp(deviceConfig.theme, "Now Playing") == 0) {
+    tft.drawString("NOW PLAYING", 12, 12, 2);
+    tft.fillRoundRect(82, 42, 76, 76, 10, 0x2810);
+    tft.setTextDatum(MC_DATUM); tft.setTextColor(TFT_WHITE, 0x2810); tft.drawString(">", 120, 80, 6);
+    tft.setTextColor(0xFDA0, TFT_BLACK); tft.drawString(deviceConfig.nowPlayingTitle, 120, 146, 1);
+    tft.setTextColor(0x9CD3, TFT_BLACK); tft.drawString(deviceConfig.nowPlayingSource, 120, 174, 1);
+  } else if (strcmp(deviceConfig.theme, "Focus Timer") == 0) {
+    tft.drawString("FOCUS SESSION", 12, 12, 2);
+    char focusBuf[8]; snprintf(focusBuf, sizeof(focusBuf), "%02d:00", deviceConfig.focusMinutes); tft.setTextDatum(MC_DATUM); tft.setTextColor(0xFDA0, TFT_BLACK); tft.drawString(focusBuf, 120, 95, 7);
+    tft.setTextColor(0x9CD3, TFT_BLACK); tft.drawString("POMODORO READY", 120, 150, 2);
+  } else {
+    tft.drawString("DEVICE DIAGNOSTICS", 12, 12, 2);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.drawString("HEAP " + String(ESP.getFreeHeap() / 1024.0, 1) + " KB", 12, 52, 2);
+    tft.drawString("WIFI " + String(WiFi.RSSI()) + " dBm", 12, 82, 2);
+    tft.drawString("UP " + String(millis() / 60000) + " MIN", 12, 112, 2);
+    tft.setTextColor(0x34D3, TFT_BLACK); tft.drawString(deviceConfig.notificationText, 12, 170, 1);
+  }
 }
 
 void renderCurrentTheme() {
@@ -1290,6 +1335,11 @@ void renderCurrentTheme() {
     renderThemePhotoAlbum();
   } else if (strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0) {
     renderThemeAnalogCalendar();
+  } else if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0 ||
+             strcmp(deviceConfig.theme, "Now Playing") == 0 ||
+             strcmp(deviceConfig.theme, "Focus Timer") == 0 ||
+             strcmp(deviceConfig.theme, "Notifications & Diagnostics") == 0) {
+    renderThemeFeatureCard();
   } else {
     renderThemePrayerWeather();
   }
@@ -1312,7 +1362,7 @@ void rotateToNextTheme() {
 void handleApiStatus() {
   JsonDocument doc;
   doc["model"] = "SmallTV-Ultra";
-  doc["firmware"] = "Ultra-V9.0.67-Custom";
+  doc["firmware"] = "Ultra-V9.0.69-Custom";
   doc["chip"] = "ESP8266EX (80 MHz)";
   doc["flashSize"] = "4 MB";
   doc["freeHeap"] = String(ESP.getFreeHeap() / 1024.0, 1) + " KB";
@@ -1367,6 +1417,11 @@ void handleApiSettingsGet() {
   JsonObject n = doc["network"].to<JsonObject>();
   n["ssid"] = deviceConfig.ssid;
 
+  doc["media"]["nowPlaying"]["title"] = deviceConfig.nowPlayingTitle;
+  doc["media"]["nowPlaying"]["source"] = deviceConfig.nowPlayingSource;
+  doc["focus"]["minutes"] = deviceConfig.focusMinutes;
+  doc["notificationCenter"]["message"] = deviceConfig.notificationText;
+
   String res;
   serializeJson(doc, res);
   server.send(200, "application/json", res);
@@ -1396,6 +1451,18 @@ void handleApiSettingsPost() {
   }
   if (doc["display"]["switchInterval"].is<int>()) {
     deviceConfig.switchInterval = max(5, (int)doc["display"]["switchInterval"]);
+  }
+  if (doc["media"]["nowPlaying"]["title"].is<const char*>()) {
+    strlcpy(deviceConfig.nowPlayingTitle, doc["media"]["nowPlaying"]["title"], sizeof(deviceConfig.nowPlayingTitle));
+  }
+  if (doc["media"]["nowPlaying"]["source"].is<const char*>()) {
+    strlcpy(deviceConfig.nowPlayingSource, doc["media"]["nowPlaying"]["source"], sizeof(deviceConfig.nowPlayingSource));
+  }
+  if (doc["focus"]["minutes"].is<int>()) {
+    deviceConfig.focusMinutes = constrain((int)doc["focus"]["minutes"], 1, 120);
+  }
+  if (doc["notificationCenter"]["message"].is<const char*>()) {
+    strlcpy(deviceConfig.notificationText, doc["notificationCenter"]["message"], sizeof(deviceConfig.notificationText));
   }
   if (doc["weather"]["city"].is<const char*>()) {
     strlcpy(deviceConfig.city, doc["weather"]["city"], sizeof(deviceConfig.city));

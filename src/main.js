@@ -11,6 +11,10 @@ const themes = [
   "Cosmic Shuttle & Prayer Station",
   "Photo Frame & Ambient Album",
   "Analog Calendar Clock",
+  "Network Health Monitor",
+  "Now Playing",
+  "Focus Timer",
+  "Notifications & Diagnostics",
 ];
 
 function escapeHtml(value) {
@@ -125,13 +129,13 @@ function analogClockSvg(date) {
   const hourAngle = ((date.getHours() % 12) + date.getMinutes() / 60) * 30;
   const minuteAngle = (date.getMinutes() + date.getSeconds() / 60) * 6;
   const secondAngle = date.getSeconds() * 6;
-  const hand = (angle, length, width, color, className = "") => `<line class="${className}" x1="120" y1="82" x2="120" y2="${82 - length}" transform="rotate(${angle} 120 82)" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
-  const ticks = Array.from({ length: 12 }, (_, i) => `<line x1="120" y1="34" x2="120" y2="39" transform="rotate(${i * 30} 120 82)" stroke="#94a3b8" stroke-width="1.4"/>`).join("");
-  return `<svg class="analog-clock-svg" viewBox="0 0 240 150" role="img" aria-label="Live analogue clock">
-    <circle cx="120" cy="82" r="49" fill="#0b1220" stroke="#f59e0b" stroke-width="2"/>
-    <circle cx="120" cy="82" r="44" fill="none" stroke="#263247" stroke-width="1"/>
-    ${ticks}${hand(hourAngle, 25, 3, "#f8fafc")}${hand(minuteAngle, 34, 2, "#f59e0b")}${hand(secondAngle, 39, 1, "#38bdf8", "analog-second")}
-    <circle cx="120" cy="82" r="3" fill="#f59e0b"/><circle cx="120" cy="82" r="1.3" fill="#0b1220"/>
+  const hand = (angle, length, width, color, className = "") => `<line class="${className}" x1="120" y1="78" x2="120" y2="${78 - length}" transform="rotate(${angle} 120 78)" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+  const ticks = Array.from({ length: 12 }, (_, i) => `<line x1="120" y1="17" x2="120" y2="24" transform="rotate(${i * 30} 120 78)" stroke="#94a3b8" stroke-width="1.6"/>`).join("");
+  return `<svg class="analog-clock-svg" viewBox="0 0 240 160" role="img" aria-label="Live analogue clock">
+    <circle cx="120" cy="78" r="61" fill="#0b1220" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="120" cy="78" r="55" fill="none" stroke="#263247" stroke-width="1"/>
+    ${ticks}${hand(hourAngle, 32, 4, "#f8fafc")}${hand(minuteAngle, 44, 2.5, "#f59e0b")}${hand(secondAngle, 53, 1, "#38bdf8", "analog-second")}
+    <circle cx="120" cy="78" r="4" fill="#f59e0b"/><circle cx="120" cy="78" r="1.5" fill="#0b1220"/>
   </svg>`;
 }
 
@@ -156,13 +160,53 @@ function renderThemeSimulation(state) {
 
   if (theme === "Analog Calendar Clock") {
     return `<div class="screen-inner theme-sim-analog-calendar">
-      <div class="analog-topline"><span>${escapeHtml(state.weather.city || "Dhaka")}</span><span class="analog-live"><i></i> LIVE</span></div>
+      <div class="analog-topline"><span>${escapeHtml(state.weather.city || "Unavailable")}</span><span class="analog-live"><i></i> LIVE</span></div>
       ${analogClockSvg(d)}
       <div class="analog-date-stack" role="status" aria-live="polite">
         <div><b>বাংলা</b><span>${calendarDates.bangla}</span></div>
         <div><b>ه‍جري</b><span>${calendarDates.hijri}</span></div>
         <div><b>EN</b><span>${calendarDates.english}</span></div>
       </div>
+    </div>`;
+  }
+
+  if (theme === "Network Health Monitor") {
+    return `<div class="screen-inner feature-theme network-theme">
+      <div class="feature-kicker">NETWORK HEALTH</div><div class="feature-value">${state.network.signal == null ? "--" : `${state.network.signal}%`}</div>
+      <div class="feature-row"><span>Wi-Fi</span><b>${escapeHtml(state.network.status)}</b></div>
+      <div class="feature-row"><span>SSID</span><b>${escapeHtml(state.network.ssid)}</b></div>
+      <div class="feature-row"><span>IP</span><b>${escapeHtml(state.device.ip)}</b></div>
+      <div class="feature-row"><span>UPTIME</span><b>${escapeHtml(state.device.uptime)}</b></div>
+    </div>`;
+  }
+
+  if (theme === "Now Playing") {
+    const nowPlaying = state.media.nowPlaying || {};
+    return `<div class="screen-inner feature-theme now-playing-theme">
+      <div class="feature-kicker">NOW PLAYING</div><div class="now-playing-art">▶</div>
+      <h3>${escapeHtml(nowPlaying.title || "No title connected")}</h3><p>${escapeHtml(nowPlaying.source || "Metadata bridge")}</p>
+      <div class="feature-progress"><i style="width:${Math.max(0, Math.min(100, Number(nowPlaying.progress) || 0))}%"></i></div>
+      <div class="feature-row"><span>${escapeHtml(nowPlaying.status || "Offline")}</span><b>${Math.round(Number(nowPlaying.progress) || 0)}%</b></div>
+    </div>`;
+  }
+
+  if (theme === "Focus Timer") {
+    const focus = state.focus || {};
+    const total = Math.max(1, Number(focus.minutes) || 25) * 60;
+    const remaining = Math.max(0, Number(focus.remaining) || total);
+    const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
+    const secs = String(remaining % 60).padStart(2, "0");
+    return `<div class="screen-inner feature-theme focus-theme"><div class="feature-kicker">FOCUS SESSION</div>
+      <div class="focus-ring"><strong>${mins}:${secs}</strong><span>${focus.running ? "FOCUSING" : "READY"}</span></div>
+      <p>Pomodoro · ${Number(focus.minutes) || 25} minutes</p><div class="feature-progress"><i style="width:${Math.max(0, Math.min(100, ((total - remaining) / total) * 100))}%"></i></div>
+    </div>`;
+  }
+
+  if (theme === "Notifications & Diagnostics") {
+    const center = state.notificationCenter || {};
+    return `<div class="screen-inner feature-theme diagnostics-theme"><div class="feature-kicker">DEVICE STATUS</div>
+      <div class="feature-value">${state.device.freeHeap}</div><div class="feature-row"><span>HEAP FREE</span><b>${escapeHtml(state.device.freeHeap)}</b></div>
+      <div class="feature-row"><span>UPTIME</span><b>${escapeHtml(state.device.uptime)}</b></div><div class="feature-row"><span>NOTICE</span><b>${escapeHtml(center.message || "All clear")}</b></div>
     </div>`;
   }
 
@@ -180,7 +224,7 @@ function renderThemeSimulation(state) {
         <div class="sim-editorial-hero">
           <div class="anim-sun" style="width: 32px; height: 32px; border-radius: 50%; background: #fda000; border: 2px solid #fc0000; flex-shrink: 0;"></div>
           <div>
-            <div style="font-size: 20px; font-weight: 800; line-height: 1.1; color: #fff;">28<span style="font-size: 12px; color: #94a3b8;">${state.weather.tempUnit}</span></div>
+            <div style="font-size: 20px; font-weight: 800; line-height: 1.1; color: #fff;">--<span style="font-size: 12px; color: #94a3b8;">${state.weather.tempUnit}</span></div>
             <div style="font-size: 9px; color: #cbd5e1;">${state.weather.city} · Clear Sky</div>
             <div style="font-size: 8px; color: #38bdf8;">HUM 64% · 1013hPa</div>
           </div>
@@ -269,7 +313,7 @@ function renderThemeSimulation(state) {
 
     let pillClass = "pill-claude";
     let pillLogo = `<svg width="12" height="12" viewBox="0 0 256 257" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M50.228 170.321L100.585 142.064L101.428 139.601L100.585 138.24L98.123 138.24L89.697 137.722L60.922 136.944L35.97 135.907L11.795 134.611L5.703 133.314L0 125.796L0.583 122.037L5.703 118.603L13.027 119.251L29.229 120.352L53.533 122.037L71.162 123.074L97.28 125.796L101.428 125.796L102.011 124.111L100.585 123.074L99.484 122.037L74.337 104.992L47.117 86.975L32.859 76.606L25.146 71.356L21.258 66.43L19.573 55.672L26.572 47.959L35.97 48.608L38.368 49.256L47.895 56.579L68.245 72.328L94.817 91.901L98.706 95.141L100.261 94.039L100.456 93.262L98.706 90.345L84.253 64.227L68.828 37.655L61.958 26.637L60.144 20.026C59.496 17.304 59.042 15.036 59.042 12.249L67.014 1.426L71.421 0L82.05 1.426L86.522 5.314L93.132 20.415L103.826 44.201L120.417 76.541L125.278 86.133L127.87 95.012L128.843 97.734L130.528 97.734L130.528 96.178L131.889 77.967L134.416 55.607L136.879 26.831L137.722 18.73L141.74 9.009L149.711 3.759L155.933 6.74L161.053 14.064L160.34 18.795L157.294 38.562L151.332 69.541L147.443 90.281L149.711 90.281L152.304 87.688L162.803 73.754L180.431 51.718L188.209 42.969L197.282 33.312L203.115 28.711L214.133 28.711L222.234 40.766L218.605 53.209L207.263 67.597L197.865 79.781L184.385 97.928L175.959 112.446L176.737 113.612L178.746 113.418L209.207 106.937L225.669 103.955L245.306 100.585L254.185 104.733L255.157 108.946L251.658 117.566L230.659 122.75L206.031 127.676L169.349 136.361L168.895 136.685L169.414 137.333L185.94 138.888L193.005 139.277L210.309 139.277L242.519 141.675L250.945 147.249L256 154.054L255.157 159.238L242.195 165.849L224.697 161.701L183.866 151.98L169.867 148.48L167.923 148.48L167.923 149.647L179.589 161.053L200.976 180.367L227.743 205.254L229.104 211.411L225.669 216.271L222.039 215.753L198.513 198.06L189.44 190.088L168.895 172.784L167.534 172.784L167.534 174.598L172.265 181.533L197.282 219.123L198.578 230.659L196.764 234.418L190.283 236.687L183.153 235.39L168.506 214.846L153.406 191.708L141.221 170.969L139.731 171.812L132.537 249.26L129.167 253.213L121.389 256.194L114.908 251.269L111.473 243.297L114.908 227.548L119.056 207.004L122.426 190.671L125.472 170.386L127.287 163.646L127.157 163.192L125.667 163.386L110.372 184.385L87.105 215.818L68.699 235.52L64.292 237.27L56.644 233.316L57.357 226.252L61.634 219.966L87.105 187.561L102.465 167.469L112.381 155.868L112.316 154.183L111.733 154.183L44.071 198.125L32.016 199.68L26.831 194.819L27.479 186.848L29.942 184.255L50.293 170.256Z"/></svg>`;
-    const pLow = (tokens.provider || "Gemini").toLowerCase();
+    const pLow = (tokens.provider || "Unavailable").toLowerCase();
     if (pLow.includes("gemini")) {
       pillClass = "pill-gemini";
       pillLogo = `<svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor" style="display:inline-block; vertical-align:-1px; margin-right:3px;"><path d="M128 0C130.686 0 133.02 1.833 133.676 4.437C135.683 12.402 138.301 20.17 141.56 27.728C150.048 47.45 161.7 64.71 176.49 79.5C191.28 94.29 208.54 105.94 228.27 114.43C235.83 117.69 243.6 120.31 251.56 122.32C254.167 122.976 256 125.31 256 128C256 130.69 254.167 133.024 251.56 133.68C243.6 135.69 235.83 138.31 228.27 141.57C208.54 150.06 191.28 161.71 176.49 176.5C161.7 191.29 150.048 208.55 141.56 228.27C138.301 235.83 135.683 243.6 133.676 251.56C133.02 254.167 130.686 256 128 256C125.314 256 122.98 254.167 122.324 251.56C120.317 243.6 117.699 235.83 114.44 228.27C105.952 208.55 94.3 191.29 79.51 176.5C64.72 161.71 47.46 150.06 27.73 141.57C20.17 138.31 12.4 135.69 4.44 133.68C1.833 133.024 0 130.69 0 128C0 125.31 1.833 122.976 4.44 122.32C12.4 120.31 20.17 117.69 27.73 114.43C47.46 105.94 64.72 94.29 79.51 79.5C94.3 64.71 105.952 47.45 114.44 27.728C117.699 20.17 120.317 12.402 122.324 4.437C122.98 1.833 125.314 0 128 0Z"/></svg>`;
@@ -290,7 +334,7 @@ function renderThemeSimulation(state) {
           </div>
           <div class="sim-provider-pill ${pillClass}">
             ${pillLogo}
-            <span>${(tokens.provider || "Gemini").toUpperCase()}</span>
+            <span>${(tokens.provider || "Unavailable").toUpperCase()}</span>
             ${tokens.model ? `<span class="sim-model-tag">${tokens.model.replace("Gemini ", "").replace("Claude ", "")}</span>` : ""}
           </div>
         </div>
@@ -471,7 +515,7 @@ function renderThemeSimulation(state) {
           <div>
             <div class="shuttle-loc">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #cbd5e1;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              <span>${state.weather.city || "Dhaka"}</span>
+              <span>${state.weather.city || "Unavailable"}</span>
             </div>
             <div class="shuttle-date">${dateStr}</div>
           </div>
@@ -702,13 +746,13 @@ function renderThemeSimulation(state) {
 
       <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 700; margin: 1px 0;">
         <span style="color: #ffffff; font-size: 10px;">Broken clouds</span>
-        <span style="color: #fde047; font-size: 12px;">28°C</span>
+        <span style="color: #fde047; font-size: 12px;">--</span>
       </div>
 
       <div class="sim-telemetry-row">
         <div class="sim-tele-item">
           <span class="sim-tele-label" style="color: #f97316;">Temp</span>
-          <span class="sim-tele-val" style="color: #fde047;">28°C</span>
+          <span class="sim-tele-val" style="color: #fde047;">--</span>
         </div>
         <div class="sim-tele-item">
           <span class="sim-tele-label" style="color: #38bdf8;">Humidity</span>
@@ -757,7 +801,7 @@ function overviewContent(state) {
       <article class="metric-card">
         <p class="metric-label">Connection</p>
         <p class="metric-value">${state.network.status}</p>
-        <p class="metric-detail">${state.network.ssid} (${state.network.signal}%) · ${state.device.ip}</p>
+        <p class="metric-detail">${state.network.ssid} (${state.network.signal == null ? "--" : `${state.network.signal}%`}) · ${state.device.ip}</p>
       </article>
       <article class="metric-card">
         <p class="metric-label">Time & Zone</p>
@@ -819,8 +863,8 @@ function overviewContent(state) {
 }
 
 function displayContent(state) {
-  const liveProvider = escapeHtml(state.tokens.provider || "Gemini");
-  const liveModel = escapeHtml(state.tokens.model || "Live Stream");
+  const liveProvider = escapeHtml(state.tokens.provider || "Unavailable");
+  const liveModel = escapeHtml(state.tokens.model || "No live stream");
 
   return `
     <section class="details-panel">
@@ -861,6 +905,18 @@ function displayContent(state) {
         <div class="screen-frame my-3">
           ${renderThemeSimulation(state)}
         </div>
+      </div>
+    </section>
+
+    <section class="details-panel">
+      <div><p class="section-kicker">Device Feature Inputs</p><h2>Now Playing, Focus & Notices</h2>
+        <p class="section-subtitle">The ESP8266 receives compact metadata and status values; video playback stays on your laptop or phone.</p></div>
+      <div class="input-grid">
+        <div class="col-span-2"><label for="now-playing-url">YouTube / media link</label><input id="now-playing-url" class="text-input" type="url" placeholder="Paste a link for metadata" value="${escapeHtml(state.media.nowPlaying?.url || "")}" data-featurefield="nowPlaying" data-featurekey="url" /></div>
+        <div><label for="now-playing-title">Now Playing title</label><input id="now-playing-title" class="text-input" value="${escapeHtml(state.media.nowPlaying?.title || "")}" data-featurefield="nowPlaying" data-featurekey="title" /></div>
+        <div><label for="now-playing-source">Channel / app</label><input id="now-playing-source" class="text-input" value="${escapeHtml(state.media.nowPlaying?.source || "")}" data-featurefield="nowPlaying" data-featurekey="source" /></div>
+        <div><label for="focus-minutes">Pomodoro minutes</label><input id="focus-minutes" class="text-input" type="number" min="1" max="120" value="${state.focus?.minutes || 25}" data-featurefield="focus" /></div>
+        <div><label for="device-notice">Device notice</label><input id="device-notice" class="text-input" value="${escapeHtml(state.notificationCenter?.message || "")}" data-featurefield="notificationCenter" /></div>
       </div>
     </section>
 
@@ -1105,7 +1161,7 @@ function weatherContent(state) {
 
 function prayerContent(state) {
   const p = state.prayer || {};
-  const t = p.timings || { fajr: "04:44", dhuhr: "11:42", asr: "15:48", maghrib: "17:24", isha: "18:40" };
+  const t = p.timings || { fajr: "--", dhuhr: "--", asr: "--", maghrib: "--", isha: "--" };
   const is12h = state.time.hourFormat === "12-Hour";
   return `
     <section class="details-panel">
@@ -1117,7 +1173,7 @@ function prayerContent(state) {
       <div class="input-grid">
         <div>
           <label for="prayer-city">City</label>
-          <input id="prayer-city" type="text" value="${p.city || "Dhaka"}" class="text-input" data-prayerfield="city" />
+          <input id="prayer-city" type="text" value="${p.city || "Unavailable"}" class="text-input" data-prayerfield="city" />
         </div>
         <div>
           <label for="prayer-country">Country</label>
@@ -1160,7 +1216,7 @@ function prayerContent(state) {
       </div>
 
       <div class="prayer-table-preview my-4">
-        <p style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Live Prayer Schedule for ${p.city || "Dhaka"}</p>
+        <p style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">Live Prayer Schedule for ${p.city || "Unavailable"}</p>
         <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; text-align: center;">
           <div style="padding: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
             <div style="font-size: 0.75rem; color: #64748b; font-weight: 700;">FAJR</div>
@@ -1204,8 +1260,8 @@ function timeContent(state) {
       <div class="screen-frame my-4">
         ${state.time.clockStyle === "analog" ? renderThemeSimulation({ ...state, display: { ...state.display, theme: "Analog Calendar Clock" } }) : `<div class="screen-inner">
           <div class="screen-top-bar">
-            <span>${state.weather.city} 28${state.weather.tempUnit}</span>
-            <span>📶 ${state.network.signal}%</span>
+            <span>${state.weather.city} --${state.weather.tempUnit}</span>
+            <span>Wi-Fi ${state.network.signal == null ? "--" : `${state.network.signal}%`}</span>
           </div>
           ${renderClockDigits(state.time.colors, state.time.hourFormat, state.time.colonBlink)}
           <div class="screen-bottom-bar">
@@ -1682,6 +1738,8 @@ if (typeof document !== "undefined") {
           },
           network: { ...state.network, ...remoteSettings.network },
           media: { ...state.media, ...remoteSettings.media },
+          focus: { ...state.focus, ...(remoteSettings.focus || {}) },
+          notificationCenter: { ...state.notificationCenter, ...(remoteSettings.notificationCenter || {}) },
         };
       }
       render();
@@ -1905,6 +1963,18 @@ if (typeof document !== "undefined") {
   });
 
   app.addEventListener("input", (event) => {
+    if (event.target.dataset.featurefield) {
+      state = reduce(state, {
+        type: "set-feature-field",
+        field: event.target.dataset.featurefield,
+        key: event.target.dataset.featurekey,
+        value: event.target.value,
+      });
+      const frame = document.querySelector(".screen-frame");
+      if (frame) frame.innerHTML = renderThemeSimulation(state);
+      triggerSave();
+      return;
+    }
     if (event.target.id === "brightness") {
       state = reduce(state, { type: "set-brightness", value: event.target.value });
       render();

@@ -9,7 +9,11 @@
       "Minimalist Clean Clock",
       "AI Token & Rate Monitor",
       "Editorial Weather Clock",
-      "Analog Calendar Clock"
+      "Analog Calendar Clock",
+      "Network Health Monitor",
+      "Now Playing",
+      "Focus Timer",
+      "Notifications & Diagnostics"
     ],
     "nightMode": {
       "enabled": true,

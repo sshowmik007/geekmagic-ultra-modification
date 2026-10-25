@@ -2,15 +2,15 @@ export function createInitialState() {
   return {
     page: "overview",
     device: {
-      isSample: true,
-      model: "SmallTV-Ultra",
-      firmware: "Ultra-V9.0.55-Custom",
-      chip: "ESP8266EX (80 MHz)",
-      flashSize: "4 MB",
-      freeHeap: "42.8 KB",
-      uptime: "3d 14h 22m",
-      ip: "192.168.0.198",
-      mac: "48:55:19:D4:2B:6A",
+      isSample: false,
+      model: "Unavailable",
+      firmware: "Unavailable",
+      chip: "Unavailable",
+      flashSize: "Unavailable",
+      freeHeap: "Unavailable",
+      uptime: "Unavailable",
+      ip: "Unavailable",
+      mac: "Unavailable",
     },
     display: {
       theme: "Weather & Prayer Station",
@@ -25,6 +25,10 @@ export function createInitialState() {
         "Cosmic Shuttle & Prayer Station",
         "Photo Frame & Ambient Album",
         "Analog Calendar Clock",
+        "Network Health Monitor",
+        "Now Playing",
+        "Focus Timer",
+        "Notifications & Diagnostics",
       ],
       nightMode: {
         enabled: true,
@@ -59,26 +63,20 @@ export function createInitialState() {
     },
     prayer: {
       enabled: true,
-      city: "Dhaka",
-      country: "Bangladesh",
-      latitude: 23.8103,
-      longitude: 90.4125,
+      city: "Unavailable",
+      country: "Unavailable",
+      latitude: null,
+      longitude: null,
       method: "1", // University of Islamic Sciences, Karachi
       asrMethod: "Hanafi",
       timings: {
-        fajr: "04:44",
-        sunrise: "06:00",
-        dhuhr: "11:42",
-        asr: "15:48",
-        sunset: "17:24",
-        maghrib: "17:24",
-        isha: "18:40",
+        fajr: "--", sunrise: "--", dhuhr: "--", asr: "--", sunset: "--", maghrib: "--", isha: "--",
       },
       nextWaqt: "Isha",
     },
     weather: {
-      city: "Dhaka",
-      cityId: "1185241",
+      city: "Unavailable",
+      cityId: "",
       tempUnit: "°C",
       windSpeedUnit: "m/s",
       pressureUnit: "hPa",
@@ -88,7 +86,7 @@ export function createInitialState() {
     },
     time: {
       mode: "Auto",
-      timezone: "Asia/Dhaka (UTC+6:00)",
+      timezone: "Unavailable",
       utcOffset: "UTC+6:00",
       hourFormat: "12-Hour",
       dateFormat: "DD MMM . Day",
@@ -103,28 +101,27 @@ export function createInitialState() {
       clockStyle: "digital",
     },
     network: {
-      ssid: "Home",
-      status: "Connected",
-      signal: 68,
+      ssid: "Unavailable",
+      status: "Unavailable",
+      signal: null,
       bootDelay: 0,
-      scannedNetworks: [
-        { ssid: "Home", rssi: 68, security: "WPA2", signal: "Strong" },
-        { ssid: "Ovi's 2.4", rssi: 64, security: "WPA2", signal: "Medium" },
-        { ssid: "Hufflepuff House", rssi: 49, security: "WPA2", signal: "Medium" },
-        { ssid: "Dobby is FREE!", rssi: 33, security: "WPA2", signal: "Weak" },
-        { ssid: "YOLO_IoT", rssi: 26, security: "Open", signal: "Weak" },
-      ],
+      scannedNetworks: [],
     },
     media: {
       autoDisplay: false,
       intervalSeconds: 30,
       activePhotoUrl: null,
-      files: [
-        { name: "pixel_sunset.jpg", size: "48 KB", type: "JPG (240x240)", active: true },
-        { name: "cat_retro.gif", size: "84 KB", type: "GIF (240x240)", active: false },
-        { name: "cyber_grid.gif", size: "112 KB", type: "GIF (240x240)", active: false },
-      ],
+      files: [],
+      nowPlaying: {
+        title: "Paste a YouTube or music link",
+        source: "Laptop metadata bridge",
+        progress: 0,
+        status: "Offline",
+        url: "",
+      },
     },
+    focus: { minutes: 25, remaining: 25 * 60, running: false },
+    notificationCenter: { message: "No new notifications", severity: "info" },
     notification: null,
   };
 }
@@ -172,6 +169,19 @@ export function reduce(state, action) {
         switchInterval: Math.max(5, Number(action.value) || 15),
       },
     };
+  }
+
+  if (action.type === "set-feature-field") {
+    if (action.field === "nowPlaying") {
+      return { ...state, media: { ...state.media, nowPlaying: { ...state.media.nowPlaying, [action.key]: action.value } } };
+    }
+    if (action.field === "focus") {
+      const minutes = Math.max(1, Math.min(120, Number(action.value) || 25));
+      return { ...state, focus: { ...state.focus, minutes, remaining: minutes * 60 } };
+    }
+    if (action.field === "notificationCenter") {
+      return { ...state, notificationCenter: { ...state.notificationCenter, message: action.value } };
+    }
   }
 
   if (action.type === "toggle-active-theme") {

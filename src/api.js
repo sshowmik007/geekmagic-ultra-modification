@@ -1,4 +1,4 @@
-// API adapter with graceful fallback to offline/memory mode when opened as file://
+// API adapter: live device data only. Offline pages remain readable but never report fake success.
 
 const isBrowser = typeof window !== "undefined";
 const isHttp = isBrowser && (window.location.protocol === "http:" || window.location.protocol === "https:");
@@ -13,7 +13,7 @@ export const api = {
       if (!res.ok) throw new Error("Status fetch failed");
       return await res.json();
     } catch (e) {
-      console.warn("[SmallTV API] Using local mock status:", e.message);
+      console.warn("[SmallTV API] Live status unavailable:", e.message);
       return null;
     }
   },
@@ -25,7 +25,7 @@ export const api = {
       if (!res.ok) throw new Error("Settings fetch failed");
       return await res.json();
     } catch (e) {
-      console.warn("[SmallTV API] Using local mock settings:", e.message);
+      console.warn("[SmallTV API] Live settings unavailable:", e.message);
       return null;
     }
   },
@@ -42,9 +42,7 @@ export const api = {
   },
 
   async saveSettings(settings) {
-    if (!isHttp) {
-      return { success: true, message: "Saved to in-memory state (Offline mode)" };
-    }
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const res = await fetch("/api/settings", {
         method: "POST",
@@ -68,9 +66,7 @@ export const api = {
   },
 
   async connectWifi(ssid, password, bootDelay) {
-    if (!isHttp) {
-      return { success: true, message: `Connected to ${ssid} (Offline mode)` };
-    }
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const res = await fetch("/api/wifi/connect", {
         method: "POST",
@@ -84,7 +80,7 @@ export const api = {
   },
 
   async resetDevice() {
-    if (!isHttp) return { success: true, message: "Settings erased (Offline mode)" };
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const res = await fetch("/api/system/reset", { method: "POST" });
       return await res.json();
@@ -94,9 +90,7 @@ export const api = {
   },
 
   async uploadMedia(rgb565Bytes, filename = "photo.raw") {
-    if (!isHttp) {
-      return { success: true, message: "Photo saved to local browser cache (Offline mode)" };
-    }
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const blob = new Blob([rgb565Bytes], { type: "application/octet-stream" });
       const formData = new FormData();
@@ -113,7 +107,7 @@ export const api = {
   },
 
   async deleteMedia(filename = "photo.raw") {
-    if (!isHttp) return { success: true, message: "Photo removed (Offline mode)" };
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const res = await fetch("/api/media/delete", {
         method: "POST",
@@ -127,7 +121,7 @@ export const api = {
   },
 
   async reboot() {
-    if (!isHttp) return { success: true, message: "Reboot triggered (Offline mode)" };
+    if (!isHttp) return { success: false, error: "Open the dashboard over HTTP to reach the SmallTV device." };
     try {
       const res = await fetch("/api/system/reboot", { method: "POST" });
       return await res.json();
