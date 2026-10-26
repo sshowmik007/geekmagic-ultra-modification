@@ -1,3 +1,4 @@
+process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "../server.js";
@@ -82,4 +83,3 @@ test("server API endpoints return expected responses", async (t) => {
     assert.equal(res.status, 404);
   }
 });
-

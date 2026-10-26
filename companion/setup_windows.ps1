@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$DeviceIp,
     [switch]$EnableLocalFileScans
 )
@@ -7,8 +7,30 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 $EnvPath = Join-Path $Root '.env'
+
+# If DeviceIp was not passed via CLI, reuse existing from .env if present
+if (-not $DeviceIp -and (Test-Path -LiteralPath $EnvPath)) {
+    $ExistingEnv = Get-Content -LiteralPath $EnvPath -Raw
+    $IpMatch = [regex]::Match($ExistingEnv, '(?m)^SMALLTV_IP=(.+)$')
+    if ($IpMatch.Success -and $IpMatch.Groups[1].Value.Trim()) {
+        $DeviceIp = $IpMatch.Groups[1].Value.Trim()
+    }
+}
+
+# If still not provided, prompt the user interactively
+if (-not $DeviceIp) {
+    $DeviceIp = Read-Host "Enter your SmallTV-Ultra IP address (e.g. 192.168.0.82)"
+}
+
+if (-not $DeviceIp) {
+    Write-Error "SmallTV IP address is required."
+    exit 1
+}
+
 # A per-install token prevents another local process from posting provider events silently.
-$Token = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLowerInvariant()
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$Token = -join ($bytes | ForEach-Object { "{0:x2}" -f $_ })
 
 if (Test-Path -LiteralPath $EnvPath) {
     $Existing = Get-Content -LiteralPath $EnvPath -Raw
@@ -18,6 +40,7 @@ if (Test-Path -LiteralPath $EnvPath) {
 
 @"
 SMALLTV_IP=$DeviceIp
+SMALLTV_DEVICE_URL=http://$DeviceIp
 SMALLTV_PROVIDER_MODE=auto
 SMALLTV_PUSH_INTERVAL_SEC=10
 SMALLTV_FRESHNESS_TIMEOUT_SEC=90

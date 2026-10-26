@@ -10,6 +10,7 @@ import sys
 import glob
 import time
 import json
+import sqlite3
 import argparse
 import urllib.request
 import urllib.error
@@ -20,7 +21,7 @@ from hmac import compare_digest
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 DEFAULT_CONFIG = {
-    "smalltv_ip": "192.168.0.198",
+    "smalltv_ip": "",
     "provider_mode": "auto",  # "auto", "gemini", "codex", "opencode", "claude"
     "push_interval_sec": 10,
     "freshness_timeout_sec": 90,
@@ -30,6 +31,7 @@ DEFAULT_CONFIG = {
     "gemini_brain_dir": os.path.expanduser(r"~/.gemini/antigravity/brain"),
     "codex_home_dir": os.path.expanduser(r"~/.codex"),
     "claude_home_dir": os.path.expanduser(r"~/.claude"),
+    "opencode_home_dir": os.path.expanduser(r"~/.local/share/opencode"),
 }
 
 _PLUGIN_EVENTS = {}
@@ -149,6 +151,19 @@ def start_bridge(port, bridge_token="", host="127.0.0.1"):
 
 def load_config():
     cfg = DEFAULT_CONFIG.copy()
+    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip()
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            print(f"[Warning] Error reading .env: {e}", flush=True)
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -166,6 +181,7 @@ def load_config():
         "gemini_brain_dir": os.getenv("SMALLTV_GEMINI_BRAIN_DIR"),
         "codex_home_dir": os.getenv("SMALLTV_CODEX_HOME_DIR"),
         "claude_home_dir": os.getenv("SMALLTV_CLAUDE_HOME_DIR"),
+        "opencode_home_dir": os.getenv("SMALLTV_OPENCODE_HOME_DIR"),
     }
     for key, value in env_values.items():
         if value in (None, ""):
@@ -327,7 +343,7 @@ def get_codex_telemetry(cfg):
                 rec = json.loads(l)
                 if not found_model and rec.get("type") == "turn_context" and "model" in rec.get("payload", {}):
                     raw_model = rec["payload"]["model"]
-                    model_name = raw_model.strip()
+                    model_name = raw_model.strip().upper()
                     found_model = True
 
                 if not found_usage and rec.get("type") == "event_msg" and rec.get("payload", {}).get("type") == "token_count":
@@ -393,8 +409,89 @@ def get_codex_telemetry(cfg):
         return None
 
 def get_opencode_telemetry(cfg):
-    """OpenCode has no verified local usage source on this machine."""
-    return None
+    """Extract real-time token telemetry from OpenCode SQLite database."""
+    opencode_dir = cfg.get("opencode_home_dir")
+    if not opencode_dir or not os.path.exists(opencode_dir):
+        return None
+    db_path = os.path.join(opencode_dir, "opencode.db") if not opencode_dir.endswith(".db") else opencode_dir
+    if not os.path.exists(db_path):
+        return None
+
+    try:
+        uri = f"file:{db_path}?mode=ro"
+        con = sqlite3.connect(uri, uri=True, timeout=1.0)
+        cur = con.cursor()
+        row = cur.execute("""
+            SELECT id, slug, directory, model, tokens_input, tokens_output, tokens_reasoning,
+                   tokens_cache_read, tokens_cache_write, time_updated, time_idle, idle_outcome
+            FROM session_v2
+            ORDER BY time_updated DESC
+            LIMIT 1
+        """).fetchone()
+        con.close()
+        if not row:
+            return None
+
+        (sid, slug, directory, model_raw, inp, out, reasoning,
+         cache_read, cache_write, time_updated, time_idle, idle_outcome) = row
+
+        inp = inp or 0
+        out = out or 0
+        reasoning = reasoning or 0
+        cache_read = cache_read or 0
+
+        turn_tokens = inp + cache_read + out + reasoning
+        session_tokens = out + reasoning
+
+        model_name = "OpenCode"
+        if model_raw:
+            try:
+                m_obj = json.loads(model_raw)
+                model_name = m_obj.get("id") or model_name
+            except Exception:
+                model_name = str(model_raw)
+
+        mtime = (time_updated or 0) / 1000.0
+        now = time.time()
+        is_working = (now - mtime < 20) and (not time_idle or time_idle < time_updated)
+
+        def format_compact(val):
+            c = float(val or 0)
+            if c >= 1000000:
+                return f"{c / 1000000.0:.1f}M"
+            if c >= 1000:
+                return f"{c / 1000.0:.1f}k"
+            return f"{int(c)}"
+
+        session_text = f"{format_compact(turn_tokens)} used" if turn_tokens > 0 else "0 tok"
+        weekly_text = f"{format_compact(session_tokens)} total" if session_tokens > 0 else "0 tok"
+
+        return {
+            "provider": "OpenCode",
+            "model": model_name,
+            "mtime": mtime,
+            "agentState": "WORKING" if is_working else "IDLE",
+            "sessionLabel": "TOKENS USED",
+            "sessionPct": None,
+            "sessionText": session_text,
+            "sessionReset": "--",
+            "weeklyLabel": "SESSION TOTAL",
+            "weeklyPct": None,
+            "weeklyText": weekly_text,
+            "weeklyReset": "--",
+            "sessionTokens": turn_tokens,
+            "sessionLimit": None,
+            "weeklyTokens": session_tokens,
+            "weeklyLimit": None,
+            "source": f"OpenCode DB ({sid[:12]}...)",
+            "sourceLabel": "OpenCode local session",
+            "sessionWindowMinutes": None,
+            "weeklyWindowMinutes": None,
+            "isLaptopOnline": True,
+            "telemetryState": "live",
+        }
+    except Exception:
+        return None
 
 _ROTATION_INDEX = 0
 
@@ -488,7 +585,10 @@ def main():
     if args.bridge_port:
         cfg["bridge_port"] = max(1024, args.bridge_port)
 
-    ip = cfg["smalltv_ip"]
+    ip = (cfg.get("smalltv_ip") or "").strip()
+    if not ip and not args.test:
+        print("[Error] SmallTV IP is missing! Please set SMALLTV_IP in .env or pass --ip <device-ip>", file=sys.stderr, flush=True)
+        sys.exit(1)
     interval = cfg["push_interval_sec"]
     mode = cfg["provider_mode"]
 

@@ -5,3 +5,6 @@ services:
       - "${CODEX_HOME:-${USERPROFILE}/.codex}:/data/codex:ro"
       - "${GEMINI_HOME:-${USERPROFILE}/.gemini}:/data/gemini:ro"
       - "${CLAUDE_HOME:-${USERPROFILE}/.claude}:/data/claude:ro"
+      - "${OPENCODE_HOME:-${USERPROFILE}/.local/share/opencode}:/data/opencode:ro"
+      - "${OPENCODE_HOME:-${USERPROFILE}/.local/share/opencode}:/data/opencode:ro"
+

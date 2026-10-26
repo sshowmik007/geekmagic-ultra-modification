@@ -58,6 +58,7 @@ class CodexTelemetryTests(unittest.TestCase):
             "freshness_timeout_sec": 90,
             "gemini_brain_dir": "",
             "codex_home_dir": "",
+            "opencode_home_dir": "",
         })
         self.assertEqual(result["provider"], "Claude")
         self.assertEqual(result["model"], "Claude Code")
@@ -73,6 +74,48 @@ class CodexTelemetryTests(unittest.TestCase):
             "observedAt": __import__("time").time(),
             "token": "secret",
         }, "secret"))
+
+    def test_opencode_telemetry_from_sqlite(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as root:
+            db_path = os.path.join(root, "opencode.db")
+            con = sqlite3.connect(db_path)
+            con.execute("""
+                CREATE TABLE session_v2 (
+                    id TEXT PRIMARY KEY,
+                    slug TEXT,
+                    directory TEXT,
+                    model TEXT,
+                    tokens_input INTEGER,
+                    tokens_output INTEGER,
+                    tokens_reasoning INTEGER,
+                    tokens_cache_read INTEGER,
+                    tokens_cache_write INTEGER,
+                    time_updated INTEGER,
+                    time_idle INTEGER,
+                    idle_outcome TEXT
+                )
+            """)
+            con.execute("""
+                INSERT INTO session_v2 (
+                    id, slug, directory, model, tokens_input, tokens_output,
+                    tokens_reasoning, tokens_cache_read, tokens_cache_write,
+                    time_updated, time_idle, idle_outcome
+                ) VALUES (
+                    'ses_123456789', 'test-slug', '/workspace',
+                    '{"id":"deepseek-v4.1-flash-free"}',
+                    1000, 200, 50, 500, 0, 1793020000000, 1793020000000, 'succeeded'
+                )
+            """)
+            con.commit()
+            con.close()
+
+            result = companion.get_opencode_telemetry({"opencode_home_dir": root})
+            self.assertIsNotNone(result)
+            self.assertEqual(result["provider"], "OpenCode")
+            self.assertEqual(result["model"], "deepseek-v4.1-flash-free")
+            self.assertEqual(result["sessionTokens"], 1750)
+            self.assertEqual(result["weeklyTokens"], 250)
 
     def test_environment_overrides_are_available_for_container_runtime(self):
         with mock.patch.dict(os.environ, {

@@ -1,5 +1,5 @@
 {
-  "smalltv_ip": "192.168.0.198",
+  "smalltv_ip": "",
   "provider_mode": "auto",
   "push_interval_sec": 10,
   "note": "Telemetries, models, limits, and rate countdowns are auto-detected dynamically from live session files."

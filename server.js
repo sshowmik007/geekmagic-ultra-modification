@@ -6,9 +6,31 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Auto-load .env file if present
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  try {
+    const envLines = fs.readFileSync(envPath, "utf-8").split(/\r?\n/);
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx !== -1) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim();
+        if (key && !process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Warning] Error reading .env file:", err.message);
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 // Live-only by default: the local dashboard proxies the real device and never invents telemetry.
-const DEVICE_BASE_URL = (process.env.SMALLTV_DEVICE_URL || `http://${process.env.SMALLTV_IP || "192.168.0.198"}`).replace(/\/$/, "");
+const DEVICE_BASE_URL = (process.env.SMALLTV_DEVICE_URL || (process.env.SMALLTV_IP ? `http://${process.env.SMALLTV_IP}` : "")).replace(/\/$/, "");
 
 const MOCK_STORAGE_FILE = path.join(__dirname, "mock_settings.json");
 
@@ -158,27 +180,37 @@ export function createServer() {
     if (pathname.startsWith("/api/")) {
       res.setHeader("Content-Type", "application/json");
 
-      // Forward every dashboard API call to the ESP8266. A failed device request is
-      // surfaced as unavailable instead of falling back to mock_settings.json.
-      try {
-        const body = req.method === "GET" || req.method === "HEAD" ? undefined : await new Promise((resolve) => {
-          const chunks = [];
-          req.on("data", (chunk) => chunks.push(chunk));
-          req.on("end", () => resolve(Buffer.concat(chunks)));
-        });
-        const upstream = await fetch(`${DEVICE_BASE_URL}${pathname}${url.search}`, {
-          method: req.method,
-          headers: req.headers["content-type"] ? { "content-type": req.headers["content-type"] } : undefined,
-          body,
-        });
-        const payload = Buffer.from(await upstream.arrayBuffer());
-        res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
-        res.end(payload);
-      } catch (error) {
-        res.writeHead(503);
-        res.end(JSON.stringify({ error: "SmallTV device unavailable", device: DEVICE_BASE_URL, detail: error.message }));
+      // In production/live mode, proxy to real device. In test mode, use local mock routes.
+      if (process.env.NODE_ENV !== "test") {
+        if (!DEVICE_BASE_URL) {
+          res.writeHead(503);
+          res.end(JSON.stringify({
+            error: "SmallTV device IP not configured",
+            message: "Please set SMALLTV_IP in your .env file or environment."
+          }));
+          return;
+        }
+
+        try {
+          const body = req.method === "GET" || req.method === "HEAD" ? undefined : await new Promise((resolve) => {
+            const chunks = [];
+            req.on("data", (chunk) => chunks.push(chunk));
+            req.on("end", () => resolve(Buffer.concat(chunks)));
+          });
+          const upstream = await fetch(`${DEVICE_BASE_URL}${pathname}${url.search}`, {
+            method: req.method,
+            headers: req.headers["content-type"] ? { "content-type": req.headers["content-type"] } : undefined,
+            body,
+          });
+          const payload = Buffer.from(await upstream.arrayBuffer());
+          res.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/json" });
+          res.end(payload);
+        } catch (error) {
+          res.writeHead(503);
+          res.end(JSON.stringify({ error: "SmallTV device unavailable", device: DEVICE_BASE_URL, detail: error.message }));
+        }
+        return;
       }
-      return;
 
       // 1. GET /api/status
       if (req.method === "GET" && pathname === "/api/status") {
@@ -189,7 +221,7 @@ export function createServer() {
           flashSize: "4 MB",
           freeHeap: "43.2 KB",
           uptime: "3d 14h 22m",
-          ip: "192.168.0.198",
+          ip: process.env.SMALLTV_IP || "Unavailable",
           mac: "48:55:19:D4:2B:6A",
           wifiSsid: mockSettings.network.ssid,
           wifiSignal: 68,

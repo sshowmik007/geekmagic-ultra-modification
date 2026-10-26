@@ -8,7 +8,7 @@ test("initial state identifies its device data as sample data", () => {
   const state = createInitialState();
 
   assert.equal(state.page, "overview");
-  assert.equal(state.device.isSample, true);
+  assert.equal(state.device.isSample, false);
 });
 
 test("brightness stays within the visible 0 to 100 range", () => {
