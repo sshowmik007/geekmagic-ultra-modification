@@ -26,6 +26,10 @@ services:
       SMALLTV_GEMINI_BRAIN_DIR: /data/gemini/antigravity/brain
       SMALLTV_CLAUDE_HOME_DIR: /data/claude
       SMALLTV_OPENCODE_HOME_DIR: /data/opencode
+      SMALLTV_ANTIGRAVITY_HUB_PORT: ${SMALLTV_ANTIGRAVITY_HUB_PORT:-}
+      SMALLTV_ANTIGRAVITY_CSRF_TOKEN: ${SMALLTV_ANTIGRAVITY_CSRF_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Do not change 127.0.0.1 to 0.0.0.0 unless LAN clients should reach the bridge.
     ports:
       - "127.0.0.1:${BRIDGE_PORT:-4310}:4310"

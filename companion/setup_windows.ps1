@@ -38,6 +38,24 @@ if (Test-Path -LiteralPath $EnvPath) {
     if ($TokenMatch.Success -and $TokenMatch.Groups[1].Value.Trim()) { $Token = $TokenMatch.Groups[1].Value.Trim() }
 }
 
+# Dynamically detect Antigravity Language Server / Hub port & token if running
+$AgyPort = ""
+$AgyCsrf = ""
+try {
+    $AgyProc = (Get-CimInstance Win32_Process -Filter "Name = 'agy.exe'" -ErrorAction SilentlyContinue).CommandLine
+    if ($AgyProc) {
+        if ($AgyProc -match '--hub-port=(\d+)') { $AgyPort = $Matches[1] }
+        if ($AgyProc -match '--csrf_token=([a-zA-Z0-9\-]+)') { $AgyCsrf = $Matches[1] }
+    }
+} catch {}
+
+if (-not $AgyPort -and (Test-Path -LiteralPath $EnvPath)) {
+    $PortMatch = [regex]::Match($Existing, '(?m)^SMALLTV_ANTIGRAVITY_HUB_PORT=(.+)$')
+    if ($PortMatch.Success) { $AgyPort = $PortMatch.Groups[1].Value.Trim() }
+    $CsrfMatch = [regex]::Match($Existing, '(?m)^SMALLTV_ANTIGRAVITY_CSRF_TOKEN=(.+)$')
+    if ($CsrfMatch.Success) { $AgyCsrf = $CsrfMatch.Groups[1].Value.Trim() }
+}
+
 @"
 SMALLTV_IP=$DeviceIp
 SMALLTV_DEVICE_URL=http://$DeviceIp
@@ -45,6 +63,8 @@ SMALLTV_PROVIDER_MODE=auto
 SMALLTV_PUSH_INTERVAL_SEC=10
 SMALLTV_FRESHNESS_TIMEOUT_SEC=90
 SMALLTV_BRIDGE_TOKEN=$Token
+SMALLTV_ANTIGRAVITY_HUB_PORT=$AgyPort
+SMALLTV_ANTIGRAVITY_CSRF_TOKEN=$AgyCsrf
 "@ | Set-Content -LiteralPath $EnvPath -Encoding ascii
 
 $ComposeFiles = @('-f', (Join-Path $Root 'docker-compose.yml'))

@@ -6,6 +6,7 @@ and streams live tokens, dynamic model context limits, and rate-limit countdowns
 """
 
 import os
+import re
 import sys
 import glob
 import time
@@ -17,6 +18,7 @@ import urllib.error
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from hmac import compare_digest
+from datetime import datetime
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -32,6 +34,8 @@ DEFAULT_CONFIG = {
     "codex_home_dir": os.path.expanduser(r"~/.codex"),
     "claude_home_dir": os.path.expanduser(r"~/.claude"),
     "opencode_home_dir": os.path.expanduser(r"~/.local/share/opencode"),
+    "antigravity_hub_port": "",
+    "antigravity_csrf_token": "",
 }
 
 _PLUGIN_EVENTS = {}
@@ -182,6 +186,8 @@ def load_config():
         "codex_home_dir": os.getenv("SMALLTV_CODEX_HOME_DIR"),
         "claude_home_dir": os.getenv("SMALLTV_CLAUDE_HOME_DIR"),
         "opencode_home_dir": os.getenv("SMALLTV_OPENCODE_HOME_DIR"),
+        "antigravity_hub_port": os.getenv("SMALLTV_ANTIGRAVITY_HUB_PORT"),
+        "antigravity_csrf_token": os.getenv("SMALLTV_ANTIGRAVITY_CSRF_TOKEN"),
     }
     for key, value in env_values.items():
         if value in (None, ""):
@@ -229,6 +235,89 @@ def window_label(window_minutes, fallback="RATE LIMIT"):
         return f"{hours}-HOUR LIMIT"
     return f"{window_minutes}-MIN LIMIT"
 
+def get_gemini_quota_telemetry(cfg):
+    """Attempt to fetch live quota and limits directly from Antigravity / Jetski Language Server."""
+    hub_port = cfg.get("antigravity_hub_port")
+    csrf_token = cfg.get("antigravity_csrf_token")
+
+    # If not passed via env/config, attempt local process discovery if running on Windows host
+    is_default_brain = os.path.abspath(cfg.get("gemini_brain_dir", "")) == os.path.abspath(DEFAULT_CONFIG["gemini_brain_dir"])
+    if not hub_port or not csrf_token:
+        if os.name == "nt" and is_default_brain:
+            try:
+                import subprocess
+                cmd = ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_Process -Filter \"Name = 'agy.exe'\").CommandLine"]
+                out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+                port_m = re.search(r'--hub-port=(\d+)', out)
+                csrf_m = re.search(r'--csrf_token=([a-zA-Z0-9\-]+)', out)
+                if port_m:
+                    hub_port = int(port_m.group(1))
+                if csrf_m:
+                    csrf_token = csrf_m.group(1)
+            except Exception:
+                pass
+
+    if not hub_port or not csrf_token:
+        return None
+
+    # Try host addresses: 127.0.0.1 (native host) or host.docker.internal (if running in Docker)
+    hosts_to_try = ["127.0.0.1", "host.docker.internal"]
+    for host in hosts_to_try:
+        try:
+            url = f"http://{host}:{hub_port}/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary"
+            headers = {
+                "Content-Type": "application/json",
+                "x-codeium-csrf-token": str(csrf_token),
+                "Connect-Protocol-Version": "1",
+            }
+            req = urllib.request.Request(url, data=b"{}", headers=headers)
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    groups = data.get("response", {}).get("groups", [])
+                    gemini_group = next((g for g in groups if "gemini" in g.get("displayName", "").lower()), None)
+                    if not gemini_group and groups:
+                        gemini_group = groups[0]
+                    if gemini_group:
+                        buckets = gemini_group.get("buckets", [])
+                        b_5h = next((b for b in buckets if b.get("window") == "5h"), None)
+                        b_weekly = next((b for b in buckets if b.get("window") == "weekly"), None)
+
+                        session_pct = None
+                        session_reset = "--"
+                        if b_5h and b_5h.get("remainingFraction") is not None:
+                            session_pct = int(round(float(b_5h["remainingFraction"]) * 100))
+                            if b_5h.get("resetTime"):
+                                try:
+                                    dt = datetime.fromisoformat(b_5h["resetTime"].replace("Z", "+00:00"))
+                                    session_reset = format_countdown(dt.timestamp())
+                                except Exception:
+                                    pass
+
+                        weekly_pct = None
+                        weekly_reset = "--"
+                        if b_weekly and b_weekly.get("remainingFraction") is not None:
+                            weekly_pct = int(round(float(b_weekly["remainingFraction"]) * 100))
+                            if b_weekly.get("resetTime"):
+                                try:
+                                    dt = datetime.fromisoformat(b_weekly["resetTime"].replace("Z", "+00:00"))
+                                    weekly_reset = format_countdown(dt.timestamp())
+                                except Exception:
+                                    pass
+
+                        if session_pct is not None or weekly_pct is not None:
+                            return {
+                                "sessionPct": session_pct,
+                                "sessionReset": session_reset,
+                                "sessionText": f"{session_pct}% Left" if session_pct is not None else "--",
+                                "weeklyPct": weekly_pct,
+                                "weeklyReset": weekly_reset,
+                                "weeklyText": f"{weekly_pct}% Left" if weekly_pct is not None else "--",
+                            }
+        except Exception:
+            continue
+    return None
+
 def get_gemini_telemetry(cfg):
     """Extract real-time live token telemetry from Antigravity/Gemini session logs."""
     brain_dir = cfg.get("gemini_brain_dir")
@@ -253,22 +342,27 @@ def get_gemini_telemetry(cfg):
 
         turn_tokens = 0
         total_session_tokens = 0
+        model_name = None
 
         for l in lines:
             try:
                 rec = json.loads(l)
+                if rec.get("source") == "USER_EXPLICIT" and "Model Selection" in str(rec.get("content", "")):
+                    c = rec["content"]
+                    m_match = re.search(r"Gemini [0-9\.]+(?: [A-Za-z]+)?", c)
+                    if m_match:
+                        model_name = m_match.group(0)
                 if rec.get("source") == "MODEL":
-                    inp = rec.get("input_tokens", 0)
-                    cache = rec.get("cache_read_tokens", 0)
-                    out = rec.get("output_tokens", 0)
-                    turn_tokens = inp + cache + out
-                    total_session_tokens += out
+                    inp = rec.get("input_tokens") or 0
+                    cache = rec.get("cache_read_tokens") or 0
+                    out = rec.get("output_tokens") or 0
+                    step_tokens = inp + cache + out
+                    if step_tokens > 0:
+                        turn_tokens = step_tokens
+                    total_session_tokens += step_tokens
             except Exception:
                 pass
 
-        model_name = cfg.get("gemini_model") or "Gemini"
-
-        # Format compact human-readable token text
         def format_compact(val):
             c = float(val or 0)
             if c >= 1000000:
@@ -280,27 +374,56 @@ def get_gemini_telemetry(cfg):
         session_text = f"{format_compact(turn_tokens)} used" if turn_tokens > 0 else "0 tok"
         weekly_text = f"{format_compact(total_session_tokens)} total" if total_session_tokens > 0 else "0 tok"
 
+        session_label = "TOKENS USED"
+        session_pct = None
+        session_reset = "--"
+        weekly_label = "SESSION TOTAL"
+        weekly_pct = None
+        weekly_reset = "--"
+        session_window_minutes = None
+        weekly_window_minutes = None
+        source_label = "Antigravity live transcript"
+
+        quota = get_gemini_quota_telemetry(cfg)
+        if quota:
+            if quota.get("sessionPct") is not None:
+                session_label = "5-HOUR LIMIT"
+                session_pct = quota["sessionPct"]
+                session_text = quota["sessionText"]
+                session_reset = quota["sessionReset"]
+                session_window_minutes = 300
+            if quota.get("weeklyPct") is not None:
+                weekly_label = "WEEKLY LIMIT"
+                weekly_pct = quota["weeklyPct"]
+                weekly_text = quota["weeklyText"]
+                weekly_reset = quota["weeklyReset"]
+                weekly_window_minutes = 10080
+            source_label = "Antigravity quota API"
+
+        if not model_name:
+            model_name = "Gemini 3.8 Flash"
+
         return {
             "provider": "Gemini",
             "model": model_name,
             "mtime": mtime,
             "agentState": "WORKING" if is_working else "IDLE",
-            "sessionLabel": "TOKENS USED",
-            "sessionPct": None,
+            "sessionLabel": session_label,
+            "sessionPct": session_pct,
             "sessionText": session_text,
-            "sessionReset": "--",
-            "weeklyLabel": "SESSION TOTAL",
-            "weeklyPct": None,
+            "sessionReset": session_reset,
+            "weeklyLabel": weekly_label,
+            "weeklyPct": weekly_pct,
             "weeklyText": weekly_text,
-            "weeklyReset": "--",
+            "weeklyReset": weekly_reset,
             "sessionTokens": turn_tokens,
             "sessionLimit": None,
             "weeklyTokens": total_session_tokens,
             "weeklyLimit": None,
             "source": f"Antigravity transcript ({os.path.basename(conv_dir)[:8]}...)",
-            "sourceLabel": "Antigravity live transcript",
-            "sessionWindowMinutes": None,
-            "weeklyWindowMinutes": None,
+            "sourceLabel": source_label,
+            "sessionWindowMinutes": session_window_minutes,
+            "weeklyWindowMinutes": weekly_window_minutes,
             "isLaptopOnline": True,
             "telemetryState": "live",
         }
@@ -318,7 +441,18 @@ def get_codex_telemetry(cfg):
         if not files:
             return None
         files.sort(key=os.path.getmtime, reverse=True)
-        newest_file = files[0]
+
+        # Prefer interactive user conversation sessions over background codex-auto-review runs
+        interactive_files = []
+        for f in files[:10]:
+            try:
+                with open(f, "r", encoding="utf-8", errors="ignore") as s:
+                    head = "".join(s.readline() for _ in range(15))
+                    if "codex-auto-review" not in head:
+                        interactive_files.append(f)
+            except Exception:
+                pass
+        newest_file = interactive_files[0] if interactive_files else files[0]
         mtime = os.path.getmtime(newest_file)
         is_working = (time.time() - mtime) < 90
 
@@ -343,8 +477,9 @@ def get_codex_telemetry(cfg):
                 rec = json.loads(l)
                 if not found_model and rec.get("type") == "turn_context" and "model" in rec.get("payload", {}):
                     raw_model = rec["payload"]["model"]
-                    model_name = raw_model.strip().upper()
-                    found_model = True
+                    if raw_model and raw_model != "codex-auto-review":
+                        model_name = raw_model.strip().upper()
+                        found_model = True
 
                 if not found_usage and rec.get("type") == "event_msg" and rec.get("payload", {}).get("type") == "token_count":
                     payload = rec["payload"]
@@ -428,26 +563,53 @@ def get_opencode_telemetry(cfg):
             ORDER BY time_updated DESC
             LIMIT 1
         """).fetchone()
-        con.close()
         if not row:
+            con.close()
             return None
 
         (sid, slug, directory, model_raw, inp, out, reasoning,
          cache_read, cache_write, time_updated, time_idle, idle_outcome) = row
+
+        # Check latest turn in session_message safely
+        latest_turn = 0
+        try:
+            msg_row = cur.execute("""
+                SELECT data FROM session_message
+                WHERE session_id = ? AND type = 'assistant'
+                ORDER BY rowid DESC LIMIT 1
+            """, (sid,)).fetchone()
+            if msg_row and msg_row[0]:
+                d = json.loads(msg_row[0]).get("tokens", {})
+                latest_turn = (d.get("input") or 0) + (d.get("output") or 0) + (d.get("reasoning") or 0)
+        except Exception:
+            pass
+        finally:
+            con.close()
 
         inp = inp or 0
         out = out or 0
         reasoning = reasoning or 0
         cache_read = cache_read or 0
 
-        turn_tokens = inp + cache_read + out + reasoning
-        session_tokens = out + reasoning
+        # Context window tokens (active compute tokens)
+        active_context = (latest_turn if latest_turn > 0 else (inp + out + reasoning))
+        session_tokens = inp + out + reasoning + cache_read
+        context_limit = 1000000
 
-        model_name = "OpenCode"
+        used_pct = int(round((active_context / context_limit) * 100)) if context_limit > 0 else 0
+        context_pct_left = max(0, 100 - used_pct)
+
+        model_name = "DeepSeek-V4.1"
         if model_raw:
             try:
                 m_obj = json.loads(model_raw)
-                model_name = m_obj.get("id") or model_name
+                m_id = m_obj.get("id") or ""
+                if m_id.lower().startswith("deepseek-v4.1"):
+                    model_name = "DeepSeek-V4.1"
+                elif m_id.lower().endswith("-free"):
+                    model_name = m_id[:-5].strip("-_")
+                elif m_id:
+                    model_name = m_id
             except Exception:
                 model_name = str(model_raw)
 
@@ -463,7 +625,7 @@ def get_opencode_telemetry(cfg):
                 return f"{c / 1000.0:.1f}k"
             return f"{int(c)}"
 
-        session_text = f"{format_compact(turn_tokens)} used" if turn_tokens > 0 else "0 tok"
+        session_text = f"{context_pct_left}% Left"
         weekly_text = f"{format_compact(session_tokens)} total" if session_tokens > 0 else "0 tok"
 
         return {
@@ -471,16 +633,16 @@ def get_opencode_telemetry(cfg):
             "model": model_name,
             "mtime": mtime,
             "agentState": "WORKING" if is_working else "IDLE",
-            "sessionLabel": "TOKENS USED",
-            "sessionPct": None,
+            "sessionLabel": "CONTEXT LIMIT",
+            "sessionPct": context_pct_left,
             "sessionText": session_text,
             "sessionReset": "--",
             "weeklyLabel": "SESSION TOTAL",
             "weeklyPct": None,
             "weeklyText": weekly_text,
             "weeklyReset": "--",
-            "sessionTokens": turn_tokens,
-            "sessionLimit": None,
+            "sessionTokens": active_context,
+            "sessionLimit": context_limit,
             "weeklyTokens": session_tokens,
             "weeklyLimit": None,
             "source": f"OpenCode DB ({sid[:12]}...)",
@@ -549,6 +711,12 @@ def detect_live_telemetry(cfg):
     return selected
 
 def push_telemetry(ip, payload):
+    # Optimize model badge display for SmallTV 24-character LCD buffer
+    if payload.get("model"):
+        m = str(payload["model"]).strip()
+        if m.lower().startswith("deepseek-v4.1"):
+            payload = payload.copy()
+            payload["model"] = "DeepSeek-V4.1"
     url = f"http://{ip}/api/tokens"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(

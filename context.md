@@ -1,6 +1,33 @@
 # Project Context: GeekMagic SmallTV-Ultra Custom Firmware & Dashboard
 
-## Current Status (October 2026 - V9.0.66)
+## Current Status (October 2026 - V9.0.69)
+### Version 9.0.69 Multi-Agent Telemetry & Docker Overhaul (October 26, 2026 — verified live)
+- **Zero Hardcoding & Dynamic Environment Configuration**:
+  - Eliminated all hardcoded device IPs, auth tokens, and ports across the entire repository.
+  - Full configuration driven by .env (with sanitized .env.example template): SMALLTV_IP, SMALLTV_DEVICE_URL, SMALLTV_PROVIDER_MODE, SMALLTV_PUSH_INTERVAL_SEC, SMALLTV_BRIDGE_TOKEN, SMALLTV_ANTIGRAVITY_HUB_PORT, SMALLTV_ANTIGRAVITY_CSRF_TOKEN, and agent directory paths.
+- **Google Gemini Real-Time Quota Integration**:
+  - Integrated local Antigravity Language Server / Connect-RPC service:
+    POST /exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary
+  - Dynamically extracts authentic user quota metrics: **5-Hour Limit** (% Left, reset countdown, green progress bar) and **Weekly Limit** (% Left, reset countdown, green progress bar), perfectly mirroring the IDE usage popup.
+  - Native Windows host auto-discovers port and CSRF token via gy.exe command-line inspection; Docker container connects via .env credentials and host.docker.internal.
+  - Seamless fallback to local transcript token counting if Language Server is not running.
+- **OpenAI / Codex Auto-Review Subsession Filtering**:
+  - Filtered out internal background review sessions (model: codex-auto-review) from ~/.codex/sessions/**/rollout-*.jsonl.
+  - Reliably locks onto interactive user sessions, displaying the true active model (e.g. GPT-5.6-LUNA), 5-Hour Limit (96% Left), and Weekly Limit (99% Left).
+- **OpenCode SQLite Telemetry & Context Limit Mapping**:
+  - Queries ~/.local/share/opencode/opencode.db (session_v2 and session_message tables).
+  - Formats model badge to DeepSeek-V4.1 for clean rendering on the 240x240 LCD without text overflow.
+  - Dynamically queries model context limits from the kv catalog (1,000,000 tokens) to render a meaningful **Context Window Limit** (CONTEXT LIMIT, 100% Left, green bar) and **Session Total** tokens (SESSION TOTAL, 1.2M total).
+- **Docker Collector Hardening & Maintenance**:
+  - Containerized Python 3.12 daemon running as non-root user (ppuser, UID 10001).
+  - Hardened Docker Compose setup (docker-compose.yml + docker-compose.local-files.yml) with read-only volume mounts (:ro), drop: ALL capabilities, and 
+o-new-privileges.
+  - Comprehensive documentation added for network IP changes, automated setup (companion/setup_windows.ps1), and manual .env updates.
+- **Test Coverage**:
+  - Companion unit test suite (companion/test_companion.py): 9/9 tests pass (Gemini quota overlay, OpenCode context limits, Codex auto-review filtering).
+  - Web dashboard test suite (	est/*.test.js): 14/14 tests pass.
+
+
 - **Target Hardware**: GeekMagic SmallTV-Ultra (ESP8266EX 80 MHz, 4 MB Flash, 1.54" ST7789 IPS LCD 240×240, active-low PWM backlight on GPIO 5).
 - **Firmware Binary**: `smalltv-dashboard/releases/custom_dashboard_firmware_v9.0.66.bin` and `releases/custom_dashboard_firmware.bin` (588,944 bytes, MD5 `b1a17bec2593835d74f8fc61475a0154`).
 - **Factory Rollback Binary**: `smalltv-dashboard/releases/STOCK_ROLLBACK_Ultra-V9.0.50.bin` (Size: 505,200 bytes).
