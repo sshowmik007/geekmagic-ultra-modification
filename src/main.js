@@ -129,13 +129,26 @@ function analogClockSvg(date) {
   const hourAngle = ((date.getHours() % 12) + date.getMinutes() / 60) * 30;
   const minuteAngle = (date.getMinutes() + date.getSeconds() / 60) * 6;
   const secondAngle = date.getSeconds() * 6;
-  const hand = (angle, length, width, color, className = "") => `<line class="${className}" x1="120" y1="78" x2="120" y2="${78 - length}" transform="rotate(${angle} 120 78)" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
-  const ticks = Array.from({ length: 12 }, (_, i) => `<line x1="120" y1="17" x2="120" y2="24" transform="rotate(${i * 30} 120 78)" stroke="#94a3b8" stroke-width="1.6"/>`).join("");
-  return `<svg class="analog-clock-svg" viewBox="0 0 240 160" role="img" aria-label="Live analogue clock">
-    <circle cx="120" cy="78" r="61" fill="#0b1220" stroke="#f59e0b" stroke-width="2"/>
-    <circle cx="120" cy="78" r="55" fill="none" stroke="#263247" stroke-width="1"/>
-    ${ticks}${hand(hourAngle, 32, 4, "#f8fafc")}${hand(minuteAngle, 44, 2.5, "#f59e0b")}${hand(secondAngle, 53, 1, "#38bdf8", "analog-second")}
-    <circle cx="120" cy="78" r="4" fill="#f59e0b"/><circle cx="120" cy="78" r="1.5" fill="#0b1220"/>
+  const hand = (angle, length, width, color, className = "") => `<line class="${className}" x1="120" y1="70" x2="120" y2="${70 - length}" transform="rotate(${angle} 120 70)" stroke="${color}" stroke-width="${width}" stroke-linecap="round"/>`;
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const isCardinal = (i % 3 === 0);
+    const stroke = isCardinal ? "#f59e0b" : "#ffffff";
+    const width = isCardinal ? "2.5" : "1.2";
+    const y2 = isCardinal ? "24" : "20";
+    return `<line x1="120" y1="12" x2="120" y2="${y2}" transform="rotate(${i * 30} 120 70)" stroke="${stroke}" stroke-width="${width}"/>`;
+  }).join("");
+  return `<svg class="analog-clock-svg" viewBox="0 0 240 144" role="img" aria-label="Live analogue clock" style="width: 100%; height: 136px; display: block;">
+    <!-- Outer Cyan Bezel -->
+    <circle cx="120" cy="70" r="62" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+    <!-- Inner Gold Bezel -->
+    <circle cx="120" cy="70" r="59" fill="#030712" stroke="#f59e0b" stroke-width="1.5"/>
+    <circle cx="120" cy="70" r="54" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+    ${ticks}
+    ${hand(hourAngle, 30, 4.5, "#ffffff")}
+    ${hand(minuteAngle, 44, 2.8, "#f59e0b")}
+    ${hand(secondAngle, 52, 1.2, "#38bdf8", "analog-second")}
+    <circle cx="120" cy="70" r="4.5" fill="#f59e0b"/>
+    <circle cx="120" cy="70" r="2" fill="#ffffff"/>
   </svg>`;
 }
 
@@ -159,13 +172,27 @@ function renderThemeSimulation(state) {
   const theme = state.display.theme;
 
   if (theme === "Analog Calendar Clock") {
-    return `<div class="screen-inner theme-sim-analog-calendar">
-      <div class="analog-topline"><span>${escapeHtml(state.weather.city || "Unavailable")}</span><span class="analog-live"><i></i> LIVE</span></div>
-      ${analogClockSvg(d)}
-      <div class="analog-date-stack" role="status" aria-live="polite">
-        <div><b>বাংলা</b><span>${calendarDates.bangla}</span></div>
-        <div><b>ه‍جري</b><span>${calendarDates.hijri}</span></div>
-        <div><b>EN</b><span>${calendarDates.english}</span></div>
+    return `<div class="screen-inner theme-sim-analog-calendar" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 8px 10px; background: #030712; color: #f8fafc; box-sizing: border-box;">
+      <div class="analog-topline" style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">
+        <span style="color: #cbd5e1;">${escapeHtml(state.weather.city || "Dhaka")}</span>
+        <span class="analog-live" style="display: inline-flex; align-items: center; gap: 4px; color: #22c55e; font-size: 9px; font-weight: 800;"><i style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></i> LIVE</span>
+      </div>
+      <div style="display: flex; justify-content: center; align-items: center; margin: 1px 0;">
+        ${analogClockSvg(d)}
+      </div>
+      <div class="analog-date-stack" style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(148, 163, 184, 0.25); padding-top: 6px;" role="status" aria-live="polite">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; min-width: 28px; text-align: center;">EN</span>
+          <span style="font-size: 12px; font-weight: 700; color: #ffffff;">${calendarDates.english}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; min-width: 28px; text-align: center;">HIJ</span>
+          <span style="font-size: 12px; font-weight: 700; color: #fde047;">${calendarDates.hijri}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; min-width: 28px; text-align: center;">BAN</span>
+          <span style="font-size: 12px; font-weight: 700; color: #38bdf8;">${calendarDates.bangla}</span>
+        </div>
       </div>
     </div>`;
   }
@@ -235,11 +262,16 @@ function renderThemeSimulation(state) {
 
   if (theme === "Minimalist Clean Clock") {
     return `
-      <div class="screen-inner theme-sim-minimal">
-        <div class="sim-minimal-time">${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}">:</span>${mm}</div>
-        ${is12h ? `<div class="sim-ampm-pill">${ampm}</div>` : ""}
-        <div style="color: #94a3b8; font-size: 11px; font-weight: 600; margin-top: 4px;">${dateStr}</div>
-        <span class="anim-live-dot" style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #22c55e; margin-top: 8px;"></span>
+      <div class="screen-inner theme-sim-minimal" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; gap: 8px; padding: 12px 10px; box-sizing: border-box;">
+        <div class="sim-minimal-time" style="font-size: 3.8rem; font-weight: 900; line-height: 1; letter-spacing: -0.04em; color: #ffffff;">
+          ${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}" style="color: #38bdf8;">:</span>${mm}
+        </div>
+        ${is12h ? `<div class="sim-ampm-pill" style="font-size: 11px; font-weight: 800; padding: 3px 14px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 9999px; letter-spacing: 0.08em;">${ampm}</div>` : ""}
+        <div style="color: #fda000; font-size: 15px; font-weight: 800; letter-spacing: 0.02em; margin-top: 4px;">${dateStr}</div>
+        <div style="display: flex; align-items: center; gap: 5px; margin-top: 6px;">
+          <span class="anim-live-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+          <span style="font-size: 8px; color: #64748b; font-weight: 700; letter-spacing: 0.05em;">ACTIVE</span>
+        </div>
       </div>
     `;
   }
@@ -339,6 +371,58 @@ function renderThemeSimulation(state) {
           </div>
         </div>
 
+        ${isGemini ? `
+        <div class="sim-gemini-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 3px;">
+          <!-- Radial 1: 5-Hour Limit -->
+          <div class="sim-radial-card" style="background: #090e17; border: 1px solid rgba(56, 189, 248, 0.22); border-radius: 10px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);">
+            <div class="sim-radial-gauge" style="position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 76 76" width="68" height="68" style="width: 100%; height: 100%; filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.2));">
+                <circle cx="38" cy="38" r="30" stroke="#1e293b" stroke-width="6.5" fill="none" />
+                <circle cx="38" cy="38" r="30" stroke="${sessionColor}" stroke-width="6.5" fill="none"
+                  stroke-dasharray="188.5"
+                  stroke-dashoffset="${188.5 * (1 - (sessionPct ?? 0) / 100)}"
+                  stroke-linecap="round"
+                  transform="rotate(-90 38 38)" />
+              </svg>
+              <div class="sim-radial-content" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none;">
+                <div class="sim-radial-pct" style="color: ${sessionColor}; font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-bottom: 2px;">${sessionPct != null ? `${sessionPct}%` : "--"}</div>
+                <div class="sim-radial-tag" style="font-size: 7.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1; margin-bottom: 2px;">5H LIMIT</div>
+                <div class="sim-radial-countdown" style="font-size: 8px; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em; line-height: 1;">${tokens.sessionReset || "--"}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Radial 2: Weekly Limit -->
+          <div class="sim-radial-card" style="background: #090e17; border: 1px solid rgba(56, 189, 248, 0.22); border-radius: 10px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);">
+            <div class="sim-radial-gauge" style="position: relative; width: 68px; height: 68px; display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 76 76" width="68" height="68" style="width: 100%; height: 100%; filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.2));">
+                <circle cx="38" cy="38" r="30" stroke="#1e293b" stroke-width="6.5" fill="none" />
+                <circle cx="38" cy="38" r="30" stroke="${weeklyColor}" stroke-width="6.5" fill="none"
+                  stroke-dasharray="188.5"
+                  stroke-dashoffset="${188.5 * (1 - (weeklyPct ?? 0) / 100)}"
+                  stroke-linecap="round"
+                  transform="rotate(-90 38 38)" />
+              </svg>
+              <div class="sim-radial-content" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none;">
+                <div class="sim-radial-pct" style="color: ${weeklyColor}; font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-bottom: 2px;">${weeklyPct != null ? `${weeklyPct}%` : "--"}</div>
+                <div class="sim-radial-tag" style="font-size: 7.5px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1; margin-bottom: 2px;">WEEKLY</div>
+                <div class="sim-radial-countdown" style="font-size: 8px; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em; line-height: 1;">${tokens.weeklyReset || "--"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- One Bar: Tokens / Activity Bar -->
+        <div class="sim-meter-block" style="margin-top: 5px; padding: 0 2px;">
+          <div class="sim-meter-meta" style="margin-bottom: 3px; display: flex; justify-content: space-between; align-items: baseline;">
+            <span class="sim-meter-label" style="font-size: 8.5px; font-weight: 800; color: #94a3b8; letter-spacing: 0.04em;">TOKENS USED</span>
+            <span class="sim-meter-reset" style="color: #38bdf8; font-size: 8.5px; font-weight: 800;">${tokens.sessionTokens ? `${formatTokenCount(tokens.sessionTokens)} used` : sessionText}</span>
+          </div>
+          <div class="sim-meter-track" style="height: 6px; background: #1e293b; border-radius: 9999px; overflow: hidden;">
+            <div class="sim-meter-fill" style="width: ${tokens.sessionTokens ? Math.min(100, Math.max(12, Math.round((tokens.sessionTokens / 200000) * 100))) : (sessionPct || 20)}%; background: #38bdf8; height: 100%; border-radius: 9999px;"></div>
+          </div>
+        </div>
+        ` : `
         <div class="sim-meter-block">
           <div class="sim-meter-meta">
             <span class="sim-meter-label">${label1}</span>
@@ -366,6 +450,7 @@ function renderThemeSimulation(state) {
             <span style="font-weight: 800; color: ${weeklyColor};">${weeklyPct == null ? "--" : `${weeklyPct}%`}</span>
           </div>
         </div>
+        `}
 
         <div class="sim-token-footer ${tokens.isLaptopOnline ? "" : "is-offline"}">
           <div style="display: flex; align-items: center; gap: 5px;">
@@ -676,91 +761,94 @@ function renderThemeSimulation(state) {
   const iMin1 = timeToMinutes(state.prayer.timings.isha || "18:43");
 
   let nextName1 = "FAJR";
-  let activeKey1 = "FAJR";
+  let nextTime1 = state.prayer.timings.fajr || "04:43";
+  let targetMin1 = fMin1;
   if (curMin1 < fMin1) {
-    nextName1 = "FAJR";
-    activeKey1 = "FAJR";
+    nextName1 = "FAJR"; nextTime1 = state.prayer.timings.fajr || "04:43"; targetMin1 = fMin1;
   } else if (curMin1 < dMin1) {
-    nextName1 = "DHUHR";
-    activeKey1 = "DHU";
+    nextName1 = "DHUHR"; nextTime1 = state.prayer.timings.dhuhr || "11:43"; targetMin1 = dMin1;
   } else if (curMin1 < aMin1) {
-    nextName1 = "ASR";
-    activeKey1 = "ASR";
+    nextName1 = "ASR"; nextTime1 = state.prayer.timings.asr || "15:01"; targetMin1 = aMin1;
   } else if (curMin1 < mMin1) {
-    nextName1 = "MAGHRIB";
-    activeKey1 = "MAG";
+    nextName1 = "MAGHRIB"; nextTime1 = state.prayer.timings.maghrib || "17:27"; targetMin1 = mMin1;
   } else if (curMin1 < iMin1) {
-    nextName1 = "ISHA";
-    activeKey1 = "ISHA";
+    nextName1 = "ISHA"; nextTime1 = state.prayer.timings.isha || "18:43"; targetMin1 = iMin1;
   } else {
-    nextName1 = "FAJR";
-    activeKey1 = "FAJR";
+    nextName1 = "FAJR"; nextTime1 = state.prayer.timings.fajr || "04:43"; targetMin1 = fMin1 + 1440;
   }
 
-  const waqts = [
-    { name: "FAJR", time: formatTime12(state.prayer.timings.fajr || "04:43", is12h), next: activeKey1 === "FAJR" },
-    { name: "DHU", time: formatTime12(state.prayer.timings.dhuhr || "11:43", is12h), next: activeKey1 === "DHU" },
-    { name: "ASR", time: formatTime12(state.prayer.timings.asr || "15:01", is12h), next: activeKey1 === "ASR" },
-    { name: "MAG", time: formatTime12(state.prayer.timings.maghrib || "17:27", is12h), next: activeKey1 === "MAG" },
-    { name: "ISHA", time: formatTime12(state.prayer.timings.isha || "18:43", is12h), next: activeKey1 === "ISHA" },
-  ];
+  const diffMin1 = targetMin1 >= curMin1 ? (targetMin1 - curMin1) : (targetMin1 + 1440 - curMin1);
+  const diffH1 = Math.floor(diffMin1 / 60);
+  const diffM1 = diffMin1 % 60;
+  const countdown1 = diffH1 > 0 ? `in ${diffH1}h ${diffM1}m` : `in ${diffM1}m`;
+
+  let endTime1 = state.prayer.timings.sunrise || "06:05";
+  if (nextName1 === "DHUHR") endTime1 = state.prayer.timings.asr || "15:01";
+  else if (nextName1 === "ASR") endTime1 = state.prayer.timings.maghrib || "17:27";
+  else if (nextName1 === "MAGHRIB") endTime1 = state.prayer.timings.isha || "18:43";
+  else if (nextName1 === "ISHA") endTime1 = state.prayer.timings.fajr || "04:43";
 
   return `
-    <div class="screen-inner theme-sim-prayer">
-      <div class="sim-header">
-        <span style="color: #ffffff;">${state.weather.city}</span>
+    <div class="screen-inner theme-sim-prayer" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; padding: 8px 12px; box-sizing: border-box; background: #000000; color: #ffffff;">
+      <!-- Top Bar: City & Status -->
+      <div class="sim-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #ffffff; font-weight: 800; font-size: 11px; letter-spacing: 0.05em;">${state.weather.city || "Dhaka"}</span>
         <div style="display: flex; align-items: center; gap: 4px;">
-          <span style="color: #38bdf8; font-size: 9px;">ONLINE</span>
+          <span style="color: #22c55e; font-size: 9px; font-weight: 800;">ONLINE</span>
           <span class="anim-live-dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
         </div>
       </div>
 
-      <div class="sim-hero-row">
-        <div style="position: relative; width: 54px; height: 42px;">
-          <div class="anim-sun" style="position: absolute; top: 2px; left: 6px; width: 24px; height: 24px; border-radius: 50%; background: #fda000; border: 2px solid #ea580c;"></div>
-          <div class="anim-cloud" style="position: absolute; bottom: 0; left: 10px; width: 40px; height: 22px; background: #e2e8f0; border-radius: 12px; opacity: 0.95; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
+      <!-- Clock & Date Row -->
+      <div class="sim-hero-row" style="display: flex; align-items: center; justify-content: space-between; margin: 2px 0;">
+        <div style="position: relative; width: 44px; height: 34px;">
+          <div class="anim-sun" style="position: absolute; top: 0; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: #fda000; border: 2px solid #ea580c;"></div>
+          <div class="anim-cloud" style="position: absolute; bottom: 0; left: 8px; width: 34px; height: 18px; background: #e2e8f0; border-radius: 10px; opacity: 0.95; box-shadow: 0 2px 4px rgba(0,0,0,0.4);"></div>
         </div>
-        <div>
-          <div class="sim-time-huge">
-            ${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}">:</span>${mm}
-            ${is12h ? `<span style="font-size: 11px; color: #fde047; vertical-align: top; margin-left: 2px;">${ampm}</span>` : ""}
+        <div style="text-align: right;">
+          <div class="sim-time-huge" style="font-size: 1.75rem; font-weight: 900; line-height: 1; color: #ffffff;">
+            ${hh}<span class="clock-colon ${state.time.colonBlink ? "blink" : ""}" style="color: #38bdf8;">:</span>${mm}
+            ${is12h ? `<span style="font-size: 10px; color: #fde047; font-weight: 800; margin-left: 2px;">${ampm}</span>` : ""}
           </div>
-          <div class="sim-date-tag">${dateStr}</div>
+          <div class="sim-date-tag" style="font-size: 9px; color: #38bdf8; font-weight: 700; margin-top: 1px;">${dateStr}</div>
         </div>
       </div>
 
-      <div>
-        <div style="display: flex; justify-content: space-between; font-size: 7px; margin-bottom: 2px;">
-          <span style="color: #64748b; font-weight: 700;">SALAH SCHEDULE</span>
-          <span style="color: #fda000; font-weight: 700;">NEXT: ${nextName1}</span>
+      <!-- Hero Next Prayer Card: Clean & Dedicated with Start and End Times -->
+      <div style="background: #08101e; border: 1px solid #fda000; border-radius: 8px; padding: 7px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.6); margin: 4px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+          <span style="font-size: 18px; font-weight: 900; color: #ffffff; letter-spacing: 0.03em;">${nextName1}</span>
+          <span style="font-size: 18px; font-weight: 900; color: #fde047; letter-spacing: 0.02em;">${formatTime12(nextTime1, is12h)}</span>
         </div>
-        <div class="sim-waqt-strip">
-          ${waqts.map(w => `
-            <div class="sim-waqt-cell ${w.next ? "is-next anim-next-waqt" : ""}">
-              <span class="sim-waqt-name">${w.name}</span>
-              <span class="sim-waqt-time">${w.time}</span>
-            </div>
-          `).join("")}
+        <div style="height: 1px; background: #19263a; margin-bottom: 5px;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 10px; font-weight: 800; color: #38bdf8; letter-spacing: 0.02em;">NEXT ${countdown1}</span>
+          <span style="font-size: 10px; font-weight: 800; color: #fda000; letter-spacing: 0.02em;">Ends ${formatTime12(endTime1, is12h)}</span>
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 700; margin: 1px 0;">
-        <span style="color: #ffffff; font-size: 10px;">Broken clouds</span>
-        <span style="color: #fde047; font-size: 12px;">--</span>
+      <!-- Weather Condition Row -->
+      <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; font-weight: 800; margin-top: 4px; padding: 0 2px;">
+        <span style="color: #ffffff;">${state.weather.condition || "Broken clouds"}</span>
+        <span style="color: #fde047;">${state.weather.temperature || "28"}°${state.weather.tempUnit || "C"}</span>
       </div>
 
-      <div class="sim-telemetry-row">
+      <!-- Divider -->
+      <div style="border-top: 1px solid rgba(148, 163, 184, 0.25); margin: 3px 0;"></div>
+
+      <!-- Environmental Metrics Row: TEMP, HUMIDITY, SUNSET cleanly spaced at bottom -->
+      <div class="sim-telemetry-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; text-align: center; padding-bottom: 2px;">
         <div class="sim-tele-item">
-          <span class="sim-tele-label" style="color: #f97316;">Temp</span>
-          <span class="sim-tele-val" style="color: #fde047;">--</span>
+          <div class="sim-tele-label" style="font-size: 8px; color: #f87171; font-weight: 800; margin-bottom: 1px;">TEMP</div>
+          <div class="sim-tele-val" style="font-size: 11px; color: #fde047; font-weight: 800;">${state.weather.temperature || "28"}°${state.weather.tempUnit || "C"}</div>
         </div>
         <div class="sim-tele-item">
-          <span class="sim-tele-label" style="color: #38bdf8;">Humidity</span>
-          <span class="sim-tele-val" style="color: #7dd3fc;">64%</span>
+          <div class="sim-tele-label" style="font-size: 8px; color: #38bdf8; font-weight: 800; margin-bottom: 1px;">HUMIDITY</div>
+          <div class="sim-tele-val" style="font-size: 11px; color: #4ade80; font-weight: 800;">64%</div>
         </div>
         <div class="sim-tele-item">
-          <span class="sim-tele-label" style="color: #fb923c;">Sunset</span>
-          <span class="sim-tele-val" style="color: #fde047;">${formatTime12(state.prayer.timings.sunset || state.weather.sunset || "17:27", is12h)}</span>
+          <div class="sim-tele-label" style="font-size: 8px; color: #fb923c; font-weight: 800; margin-bottom: 1px;">SUNSET</div>
+          <div class="sim-tele-val" style="font-size: 11px; color: #fde047; font-weight: 800;">${formatTime12(state.prayer.timings.sunset || "17:27", is12h)}</div>
         </div>
       </div>
     </div>

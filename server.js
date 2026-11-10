@@ -1,6 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -154,6 +155,141 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
 };
 
+function formatCountdownIso(resetTimeStr) {
+  if (!resetTimeStr) return "--";
+  try {
+    const target = new Date(resetTimeStr).getTime();
+    const now = Date.now();
+    const diffSec = Math.max(0, Math.floor((target - now) / 1000));
+    const days = Math.floor(diffSec / 86400);
+    const hours = Math.floor((diffSec % 86400) / 3600);
+    const mins = Math.floor((diffSec % 3600) / 60);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  } catch {
+    return "--";
+  }
+}
+
+async function getLiveAntigravityTelemetry() {
+  const homeDir = os.homedir();
+  const daemonDir = path.join(homeDir, ".gemini", "antigravity", "daemon");
+  if (!fs.existsSync(daemonDir)) return null;
+
+  try {
+    const files = fs.readdirSync(daemonDir).filter((f) => f.startsWith("hub_") && f.endsWith(".json"));
+    if (!files.length) return null;
+
+    files.sort((a, b) => {
+      const statA = fs.statSync(path.join(daemonDir, a));
+      const statB = fs.statSync(path.join(daemonDir, b));
+      return statB.mtimeMs - statA.mtimeMs;
+    });
+
+    let quotaData = null;
+    for (const f of files.slice(0, 3)) {
+      try {
+        const hubInfo = JSON.parse(fs.readFileSync(path.join(daemonDir, f), "utf8"));
+        const port = hubInfo.httpPort;
+        const token = hubInfo.csrfToken;
+        if (!port || !token) continue;
+
+        const res = await fetch(`http://127.0.0.1:${port}/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-codeium-csrf-token": String(token),
+            "Connect-Protocol-Version": "1",
+          },
+          body: "{}",
+          signal: AbortSignal.timeout(1500),
+        });
+        if (res.ok) {
+          quotaData = await res.json();
+          break;
+        }
+      } catch {}
+    }
+
+    if (!quotaData) return null;
+
+    const groups = quotaData?.response?.groups || [];
+    const geminiGroup = groups.find((g) => (g.displayName || "").toLowerCase().includes("gemini")) || groups[0];
+    if (!geminiGroup) return null;
+
+    const buckets = geminiGroup.buckets || [];
+    const b5h = buckets.find((b) => b.window === "5h");
+    const bWeekly = buckets.find((b) => b.window === "weekly");
+
+    const sessionPct = b5h?.remainingFraction != null ? Math.round(Number(b5h.remainingFraction) * 100) : null;
+    const sessionReset = formatCountdownIso(b5h?.resetTime);
+    const weeklyPct = bWeekly?.remainingFraction != null ? Math.round(Number(bWeekly.remainingFraction) * 100) : null;
+    const weeklyReset = formatCountdownIso(bWeekly?.resetTime);
+
+    let sessionTokens = 0;
+    let weeklyTokens = 0;
+    let modelName = "Gemini 3.8 Flash";
+    let isWorking = true;
+
+    try {
+      const brainDir = path.join(homeDir, ".gemini", "antigravity", "brain");
+      if (fs.existsSync(brainDir)) {
+        const convDirs = fs.readdirSync(brainDir);
+        for (const dir of convDirs) {
+          const transPath = path.join(brainDir, dir, ".system_generated", "logs", "transcript.jsonl");
+          if (fs.existsSync(transPath)) {
+            const stat = fs.statSync(transPath);
+            if (Date.now() - stat.mtimeMs < 120000) {
+              isWorking = true;
+            }
+            const lines = fs.readFileSync(transPath, "utf8").trim().split("\n");
+            for (const line of lines.slice(-100)) {
+              try {
+                const rec = JSON.parse(line);
+                if (rec.source === "MODEL") {
+                  const step = (rec.input_tokens || 0) + (rec.cache_read_tokens || 0) + (rec.output_tokens || 0);
+                  if (step > 0) sessionTokens = step;
+                  weeklyTokens += step;
+                }
+              } catch {}
+            }
+            break;
+          }
+        }
+      }
+    } catch {}
+
+    const formatTokens = (c) => (c >= 1000000 ? `${(c / 1000000).toFixed(1)}M` : (c >= 1000 ? `${(c / 1000).toFixed(1)}k` : `${c}`));
+
+    return {
+      provider: "Gemini",
+      model: modelName,
+      agentState: isWorking ? "WORKING" : "IDLE",
+      sessionLabel: "5-HOUR LIMIT",
+      sessionPct,
+      sessionText: sessionPct != null ? `${sessionPct}% Left` : (sessionTokens ? `${formatTokens(sessionTokens)} used` : "--"),
+      sessionReset,
+      weeklyLabel: "WEEKLY LIMIT",
+      weeklyPct,
+      weeklyText: weeklyPct != null ? `${weeklyPct}% Left` : (weeklyTokens ? `${formatTokens(weeklyTokens)} total` : "--"),
+      weeklyReset,
+      sessionTokens: sessionTokens || 0,
+      sessionLimit: 100,
+      weeklyTokens: weeklyTokens || 0,
+      weeklyLimit: 100,
+      sourceLabel: "Antigravity quota API",
+      isLaptopOnline: true,
+      telemetryState: "live",
+      observedAt: Math.floor(Date.now() / 1000),
+      sessionWindowMinutes: 300,
+      weeklyWindowMinutes: 10080,
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
 export function createServer() {
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -182,6 +318,22 @@ export function createServer() {
 
       // In production/live mode, proxy to real device. In test mode, use local mock routes.
       if (process.env.NODE_ENV !== "test") {
+        if (pathname === "/api/tokens" && (req.method === "GET" || req.method === "HEAD")) {
+          const live = await getLiveAntigravityTelemetry();
+          if (live) {
+            if (DEVICE_BASE_URL) {
+              fetch(`${DEVICE_BASE_URL}/api/tokens`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(live),
+              }).catch(() => {});
+            }
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(live));
+            return;
+          }
+        }
+
         if (!DEVICE_BASE_URL) {
           res.writeHead(503);
           res.end(JSON.stringify({

@@ -22,9 +22,9 @@ ESP8266HTTPUpdateServer httpUpdater;
 File photoUploadFile;
 
 const int PRAYER_CLOCK_X = 74;
-const int PRAYER_CLOCK_Y = 24;
+const int PRAYER_CLOCK_Y = 18;
 const int PRAYER_CLOCK_W = 144;
-const int PRAYER_CLOCK_H = 48;
+const int PRAYER_CLOCK_H = 42;
 bool prayerClockSpriteReady = false;
 
 const byte DNS_PORT = 53;
@@ -33,24 +33,39 @@ IPAddress apIP(192, 168, 4, 1);
 IPAddress apNetmask(255, 255, 255, 0);
 
 // Helper to parse timezone string (e.g., "UTC+6:00", "UTC-5:00", "+06:00")
-int parseTimezoneOffset(const char* tzStr) {
-  if (!tzStr) return 360; // Default Dhaka UTC+6
+int parseTimezoneOffset(const char *tzStr)
+{
+  if (!tzStr)
+    return 360; // Default Dhaka UTC+6
   int sign = 1;
-  const char* p = strstr(tzStr, "UTC");
-  if (p) p += 3;
-  else p = tzStr;
-  while (*p == ' ') p++;
-  if (*p == '-') { sign = -1; p++; }
-  else if (*p == '+') { sign = 1; p++; }
+  const char *p = strstr(tzStr, "UTC");
+  if (p)
+    p += 3;
+  else
+    p = tzStr;
+  while (*p == ' ')
+    p++;
+  if (*p == '-')
+  {
+    sign = -1;
+    p++;
+  }
+  else if (*p == '+')
+  {
+    sign = 1;
+    p++;
+  }
   int hours = 0, mins = 0;
-  if (sscanf(p, "%d:%d", &hours, &mins) >= 1) {
+  if (sscanf(p, "%d:%d", &hours, &mins) >= 1)
+  {
     return sign * (hours * 60 + mins);
   }
   return 360;
 }
 
 // In-memory configuration matching dashboard state
-struct Config {
+struct Config
+{
   char theme[40] = "Weather & Prayer Station";
   int brightness = DEFAULT_BRIGHTNESS;
   bool autoSwitch = false;
@@ -80,7 +95,8 @@ struct Config {
 } deviceConfig;
 
 // Live AI token usage telemetry cache
-struct TokenUsage {
+struct TokenUsage
+{
   char provider[16] = "";
   char model[24] = "";
   long sessionTokens = 0;
@@ -105,23 +121,23 @@ struct TokenUsage {
   unsigned long lastSyncMillis = 0;
 } tokenCache;
 
-const char* const allThemes[] = {
-  "Weather & Prayer Station",
-  "Editorial Weather Clock",
-  "Minimalist Clean Clock",
-  "AI Token & Rate Monitor",
-  "Cosmic Shuttle & Prayer Station",
-  "Photo Frame & Ambient Album",
-  "Analog Calendar Clock",
-  "Network Health Monitor",
-  "Now Playing",
-  "Focus Timer",
-  "Notifications & Diagnostics"
-};
+const char *const allThemes[] = {
+    "Weather & Prayer Station",
+    "Editorial Weather Clock",
+    "Minimalist Clean Clock",
+    "AI Token & Rate Monitor",
+    "Cosmic Shuttle & Prayer Station",
+    "Photo Frame & Ambient Album",
+    "Analog Calendar Clock",
+    "Network Health Monitor",
+    "Now Playing",
+    "Focus Timer",
+    "Notifications & Diagnostics"};
 const int NUM_THEMES = 11;
 
 // Live prayer times cache (Dhaka defaults)
-struct PrayerTimes {
+struct PrayerTimes
+{
   char fajr[8] = "04:44";
   char sunrise[8] = "06:00";
   char dhuhr[8] = "11:42";
@@ -135,7 +151,8 @@ unsigned long lastPrayerAttemptMillis = 0;
 unsigned long lastPrayerSyncMillis = 0;
 
 // Live weather cache
-struct WeatherData {
+struct WeatherData
+{
   int temp = 28;
   int humidity = 64;
   float windSpeed = 2.4;
@@ -149,52 +166,79 @@ int lastRenderedMinute = -1;
 // A full clear is reserved for boot, theme changes, and settings changes.
 bool partialThemeRefresh = false;
 
-void setBacklight(int percent) {
+void setBacklight(int percent)
+{
   // Active-LOW PWM on SmallTV-Ultra: 0 = Full On (100%), 1023 = Off (0%)
   int bounded = constrain(percent, 0, 100);
   int pwmValue = (bounded == 0) ? 1023 : ((bounded == 100) ? 0 : map(bounded, 0, 100, 1023, 0));
   analogWrite(PIN_BACKLIGHT, pwmValue);
 }
 
-void loadConfig() {
-  if (LittleFS.exists("/config.json")) {
+void loadConfig()
+{
+  if (LittleFS.exists("/config.json"))
+  {
     File f = LittleFS.open("/config.json", "r");
-    if (f) {
+    if (f)
+    {
       JsonDocument doc;
-      if (deserializeJson(doc, f) == DeserializationError::Ok) {
-        if (doc["theme"].is<const char*>()) strlcpy(deviceConfig.theme, doc["theme"], sizeof(deviceConfig.theme));
-        if (doc["brightness"].is<int>()) deviceConfig.brightness = doc["brightness"];
-        if (doc["autoSwitch"].is<bool>()) deviceConfig.autoSwitch = doc["autoSwitch"];
-        if (doc["switchInterval"].is<int>()) deviceConfig.switchInterval = max(5, (int)doc["switchInterval"]);
-        if (doc["city"].is<const char*>()) strlcpy(deviceConfig.city, doc["city"], sizeof(deviceConfig.city));
-        if (doc["tempUnit"].is<const char*>()) strlcpy(deviceConfig.tempUnit, doc["tempUnit"], sizeof(deviceConfig.tempUnit));
-        if (doc["hourFormat"].is<const char*>()) strlcpy(deviceConfig.hourFormat, doc["hourFormat"], sizeof(deviceConfig.hourFormat));
-        if (doc["dateFormat"].is<const char*>()) strlcpy(deviceConfig.dateFormat, doc["dateFormat"], sizeof(deviceConfig.dateFormat));
-        if (doc["timezone"].is<const char*>()) {
+      if (deserializeJson(doc, f) == DeserializationError::Ok)
+      {
+        if (doc["theme"].is<const char *>())
+          strlcpy(deviceConfig.theme, doc["theme"], sizeof(deviceConfig.theme));
+        if (doc["brightness"].is<int>())
+          deviceConfig.brightness = doc["brightness"];
+        if (doc["autoSwitch"].is<bool>())
+          deviceConfig.autoSwitch = doc["autoSwitch"];
+        if (doc["switchInterval"].is<int>())
+          deviceConfig.switchInterval = max(5, (int)doc["switchInterval"]);
+        if (doc["city"].is<const char *>())
+          strlcpy(deviceConfig.city, doc["city"], sizeof(deviceConfig.city));
+        if (doc["tempUnit"].is<const char *>())
+          strlcpy(deviceConfig.tempUnit, doc["tempUnit"], sizeof(deviceConfig.tempUnit));
+        if (doc["hourFormat"].is<const char *>())
+          strlcpy(deviceConfig.hourFormat, doc["hourFormat"], sizeof(deviceConfig.hourFormat));
+        if (doc["dateFormat"].is<const char *>())
+          strlcpy(deviceConfig.dateFormat, doc["dateFormat"], sizeof(deviceConfig.dateFormat));
+        if (doc["timezone"].is<const char *>())
+        {
           strlcpy(deviceConfig.timezone, doc["timezone"], sizeof(deviceConfig.timezone));
           deviceConfig.tzOffsetMinutes = parseTimezoneOffset(deviceConfig.timezone);
         }
-        if (doc["ntpServer"].is<const char*>()) strlcpy(deviceConfig.ntpServer, doc["ntpServer"], sizeof(deviceConfig.ntpServer));
-        if (doc["media"]["nowPlaying"]["title"].is<const char*>()) strlcpy(deviceConfig.nowPlayingTitle, doc["media"]["nowPlaying"]["title"], sizeof(deviceConfig.nowPlayingTitle));
-        if (doc["media"]["nowPlaying"]["source"].is<const char*>()) strlcpy(deviceConfig.nowPlayingSource, doc["media"]["nowPlaying"]["source"], sizeof(deviceConfig.nowPlayingSource));
-        if (doc["focus"]["minutes"].is<int>()) deviceConfig.focusMinutes = constrain((int)doc["focus"]["minutes"], 1, 120);
-        if (doc["notificationCenter"]["message"].is<const char*>()) strlcpy(deviceConfig.notificationText, doc["notificationCenter"]["message"], sizeof(deviceConfig.notificationText));
-        if (doc["ssid"].is<const char*>()) strlcpy(deviceConfig.ssid, doc["ssid"], sizeof(deviceConfig.ssid));
-        if (doc["password"].is<const char*>()) strlcpy(deviceConfig.password, doc["password"], sizeof(deviceConfig.password));
-        
-        if (doc["prayer"]["latitude"].is<float>()) deviceConfig.latitude = doc["prayer"]["latitude"];
-        if (doc["prayer"]["longitude"].is<float>()) deviceConfig.longitude = doc["prayer"]["longitude"];
-        if (doc["prayer"]["method"].is<const char*>()) strlcpy(deviceConfig.prayerMethod, doc["prayer"]["method"], sizeof(deviceConfig.prayerMethod));
-        if (doc["prayer"]["asrMethod"].is<const char*>()) strlcpy(deviceConfig.asrMethod, doc["prayer"]["asrMethod"], sizeof(deviceConfig.asrMethod));
+        if (doc["ntpServer"].is<const char *>())
+          strlcpy(deviceConfig.ntpServer, doc["ntpServer"], sizeof(deviceConfig.ntpServer));
+        if (doc["media"]["nowPlaying"]["title"].is<const char *>())
+          strlcpy(deviceConfig.nowPlayingTitle, doc["media"]["nowPlaying"]["title"], sizeof(deviceConfig.nowPlayingTitle));
+        if (doc["media"]["nowPlaying"]["source"].is<const char *>())
+          strlcpy(deviceConfig.nowPlayingSource, doc["media"]["nowPlaying"]["source"], sizeof(deviceConfig.nowPlayingSource));
+        if (doc["focus"]["minutes"].is<int>())
+          deviceConfig.focusMinutes = constrain((int)doc["focus"]["minutes"], 1, 120);
+        if (doc["notificationCenter"]["message"].is<const char *>())
+          strlcpy(deviceConfig.notificationText, doc["notificationCenter"]["message"], sizeof(deviceConfig.notificationText));
+        if (doc["ssid"].is<const char *>())
+          strlcpy(deviceConfig.ssid, doc["ssid"], sizeof(deviceConfig.ssid));
+        if (doc["password"].is<const char *>())
+          strlcpy(deviceConfig.password, doc["password"], sizeof(deviceConfig.password));
+
+        if (doc["prayer"]["latitude"].is<float>())
+          deviceConfig.latitude = doc["prayer"]["latitude"];
+        if (doc["prayer"]["longitude"].is<float>())
+          deviceConfig.longitude = doc["prayer"]["longitude"];
+        if (doc["prayer"]["method"].is<const char *>())
+          strlcpy(deviceConfig.prayerMethod, doc["prayer"]["method"], sizeof(deviceConfig.prayerMethod));
+        if (doc["prayer"]["asrMethod"].is<const char *>())
+          strlcpy(deviceConfig.asrMethod, doc["prayer"]["asrMethod"], sizeof(deviceConfig.asrMethod));
       }
       f.close();
     }
   }
 }
 
-void saveConfig() {
+void saveConfig()
+{
   File f = LittleFS.open("/config.json", "w");
-  if (f) {
+  if (f)
+  {
     JsonDocument doc;
     doc["theme"] = deviceConfig.theme;
     doc["brightness"] = deviceConfig.brightness;
@@ -226,9 +270,10 @@ void saveConfig() {
 }
 
 // Helper to compute live or simulated time and formatted date
-void getTimeAndDate(char* timeBuf, size_t timeLen, char* ampmBuf, size_t ampmLen, char* dateBuf, size_t dateLen) {
+void getTimeAndDate(char *timeBuf, size_t timeLen, char *ampmBuf, size_t ampmLen, char *dateBuf, size_t dateLen)
+{
   time_t now = time(nullptr);
-  struct tm* t = localtime(&now);
+  struct tm *t = localtime(&now);
 
   int hour = (t && t->tm_year + 1900 >= 2024) ? t->tm_hour : 21;
   int minute = (t && t->tm_year + 1900 >= 2024) ? t->tm_min : 44;
@@ -238,70 +283,96 @@ void getTimeAndDate(char* timeBuf, size_t timeLen, char* ampmBuf, size_t ampmLen
   int wday = (t && t->tm_year + 1900 >= 2024) ? t->tm_wday : 5; // 5 = Fri
 
   // Simulated running clock if NTP has not yet synced
-  if (t && t->tm_year + 1900 < 2024) {
+  if (t && t->tm_year + 1900 < 2024)
+  {
     unsigned long sec = millis() / 1000;
     hour = (21 + (sec / 3600)) % 24;
     minute = (44 + (sec / 60)) % 60;
   }
 
-  const char* ampm = (hour >= 12) ? "PM" : "AM";
-  if (ampmBuf && ampmLen > 0) {
+  const char *ampm = (hour >= 12) ? "PM" : "AM";
+  if (ampmBuf && ampmLen > 0)
+  {
     strlcpy(ampmBuf, ampm, ampmLen);
   }
 
   bool is12 = (strcmp(deviceConfig.hourFormat, "12-Hour") == 0);
   int disHour = hour;
-  if (is12) {
+  if (is12)
+  {
     disHour = hour % 12;
-    if (disHour == 0) disHour = 12;
+    if (disHour == 0)
+      disHour = 12;
     snprintf(timeBuf, timeLen, "%02d:%02d", disHour, minute);
-  } else {
+  }
+  else
+  {
     snprintf(timeBuf, timeLen, "%02d:%02d", disHour, minute);
   }
 
-  const char* months[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-  const char* days[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  const char *months[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+  const char *days[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
-  if (strcmp(deviceConfig.dateFormat, "DD/MM/YYYY") == 0) {
+  if (strcmp(deviceConfig.dateFormat, "DD/MM/YYYY") == 0)
+  {
     snprintf(dateBuf, dateLen, "%02d/%02d/%04d", day, month + 1, year);
-  } else if (strcmp(deviceConfig.dateFormat, "YYYY/MM/DD") == 0) {
+  }
+  else if (strcmp(deviceConfig.dateFormat, "YYYY/MM/DD") == 0)
+  {
     snprintf(dateBuf, dateLen, "%04d/%02d/%02d", year, month + 1, day);
-  } else if (strcmp(deviceConfig.dateFormat, "MM/DD/YYYY") == 0) {
+  }
+  else if (strcmp(deviceConfig.dateFormat, "MM/DD/YYYY") == 0)
+  {
     snprintf(dateBuf, dateLen, "%02d/%02d/%04d", month + 1, day, year);
-  } else if (strcmp(deviceConfig.dateFormat, "DD.MM.YYYY") == 0) {
+  }
+  else if (strcmp(deviceConfig.dateFormat, "DD.MM.YYYY") == 0)
+  {
     snprintf(dateBuf, dateLen, "%02d.%02d.%04d", day, month + 1, year);
-  } else {
+  }
+  else
+  {
     // Default: "24 Oct . Fri"
     snprintf(dateBuf, dateLen, "%d %s . %s", day, months[month], days[wday]);
   }
 }
 
 // Calendar labels stay ASCII on the ESP8266 because the bundled TFT fonts do not contain Bengali/Arabic glyphs.
-void getCalendarDates(char* bangla, size_t banglaLen, char* hijri, size_t hijriLen, char* english, size_t englishLen) {
+void getCalendarDates(char *bangla, size_t banglaLen, char *hijri, size_t hijriLen, char *english, size_t englishLen)
+{
   time_t now = time(nullptr);
-  struct tm* t = localtime(&now);
+  struct tm *t = localtime(&now);
   int year = (t && t->tm_year + 1900 >= 2024) ? t->tm_year + 1900 : 2026;
   int month = (t && t->tm_year + 1900 >= 2024) ? t->tm_mon + 1 : 10;
   int day = (t && t->tm_year + 1900 >= 2024) ? t->tm_mday : 24;
   int wday = (t && t->tm_year + 1900 >= 2024) ? t->tm_wday : 5;
-  const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-  const char* months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+  const char *days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+  const char *months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
   snprintf(english, englishLen, "%02d %s %04d %s", day, months[max(0, min(11, month - 1))], year, days[max(0, min(6, wday))]);
 
   // Bangladesh civil calendar approximation: fixed 14 April new year and 31/30-day month rhythm.
-  const char* banglaMonths[] = {"BOISHAKH", "JOISHTHO", "ASHAR", "SRABON", "BHADRO", "ASHWIN", "KARTIK", "OGROHAYON", "POUSH", "MAGH", "FALGUN", "CHOITRO"};
+  const char *banglaMonths[] = {"BOISHAKH", "JOISHTHO", "ASHAR", "SRABON", "BHADRO", "ASHWIN", "KARTIK", "OGROHAYON", "POUSH", "MAGH", "FALGUN", "CHOITRO"};
   int leap = ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) ? 1 : 0;
   int startDay = 103 + leap; // tm_yday for 14 April
   int dayOfYear = t ? t->tm_yday : 297;
   int bYear = year - 593;
-  if (dayOfYear < startDay) { bYear--; dayOfYear += 365 + leap; }
+  if (dayOfYear < startDay)
+  {
+    bYear--;
+    dayOfYear += 365 + leap;
+  }
   int elapsed = dayOfYear - startDay;
   int bMonth = 0;
   int bDay = elapsed + 1;
-  for (int i = 0; i < 12; i++) {
+  for (int i = 0; i < 12; i++)
+  {
     int length = i < 6 ? 31 : 30;
-    if (i == 10 && leap) length = 31;
-    if (bDay <= length) { bMonth = i; break; }
+    if (i == 10 && leap)
+      length = 31;
+    if (bDay <= length)
+    {
+      bMonth = i;
+      break;
+    }
     bDay -= length;
   }
   snprintf(bangla, banglaLen, "%02d %s %04d", bDay, banglaMonths[bMonth], bYear);
@@ -319,12 +390,13 @@ void getCalendarDates(char* bangla, size_t banglaLen, char* hijri, size_t hijriL
   int hMonth = (int)((24 * l) / 709);
   int hDay = (int)(l - (709 * hMonth) / 24);
   int hYear = (int)(30 * n + j - 30);
-  const char* hijriMonths[] = {"MUHARRAM", "SAFAR", "RABI-I", "RABI-II", "JUMADA-I", "JUMADA-II", "RAJAB", "SHABAN", "RAMADAN", "SHAWWAL", "DHU-QADAH", "DHU-HIJJAH"};
+  const char *hijriMonths[] = {"MUHARRAM", "SAFAR", "RABI-I", "RABI-II", "JUMADA-I", "JUMADA-II", "RAJAB", "SHABAN", "RAMADAN", "SHAWWAL", "DHU-QADAH", "DHU-HIJJAH"};
   snprintf(hijri, hijriLen, "%02d %s %04d", hDay, hijriMonths[max(1, min(12, hMonth)) - 1], hYear);
 }
 
 // Drawing Helpers for ST7789 IPS Screen
-void showBootAnimation() {
+void showBootAnimation()
+{
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(0xFDA0, TFT_BLACK);
@@ -333,22 +405,24 @@ void showBootAnimation() {
   tft.drawString("Starting dashboard", 120, 122, 2);
   tft.drawRoundRect(42, 148, 156, 10, 5, 0x2965);
 
-  for (int width = 4; width <= 148; width += 6) {
+  for (int width = 4; width <= 148; width += 6)
+  {
     tft.fillRoundRect(46, 152, width, 2, 1, 0x3E1F);
     delay(24);
     yield();
   }
 }
 
-void drawSunAndCloud(int x, int y, uint8_t frame) {
+void drawSunAndCloud(int x, int y, uint8_t frame)
+{
   tft.fillRect(x, y, 62, 44, TFT_BLACK);
   int drift = frame <= 3 ? frame : 7 - frame;
   int sunRadius = (frame >= 2 && frame <= 5) ? 12 : 11;
 
   // Radiant Golden Sun
-  tft.fillCircle(x + 18, y + 14, sunRadius, 0xFDA0); // Golden Yellow
+  tft.fillCircle(x + 18, y + 14, sunRadius, 0xFDA0);     // Golden Yellow
   tft.drawCircle(x + 18, y + 14, sunRadius + 2, 0xFC00); // Orange rim
-  
+
   // Stylized Soft Cloud
   int cloudX = x + drift;
   tft.fillCircle(cloudX + 28, y + 26, 9, 0xBDF7);
@@ -357,18 +431,24 @@ void drawSunAndCloud(int x, int y, uint8_t frame) {
   tft.fillRoundRect(cloudX + 20, y + 26, 36, 12, 5, 0xE73F);
 }
 
-void formatPrayerTime(const char* in24, char* out, size_t outSize) {
-  if (!in24 || strlen(in24) < 5) {
+void formatPrayerTime(const char *in24, char *out, size_t outSize)
+{
+  if (!in24 || strlen(in24) < 5)
+  {
     strlcpy(out, in24 ? in24 : "", outSize);
     return;
   }
   int h = (in24[0] - '0') * 10 + (in24[1] - '0');
   int m = (in24[3] - '0') * 10 + (in24[4] - '0');
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
     int h12 = h % 12;
-    if (h12 == 0) h12 = 12;
+    if (h12 == 0)
+      h12 = 12;
     snprintf(out, outSize, "%02d:%02d", h12, m);
-  } else {
+  }
+  else
+  {
     snprintf(out, outSize, "%02d:%02d", h, m);
   }
 }
@@ -376,15 +456,17 @@ void formatPrayerTime(const char* in24, char* out, size_t outSize) {
 // -------------------------------------------------------------
 // THEME 1: Weather Station & 5-Waqt Prayer Times (Pure OLED Black)
 // -------------------------------------------------------------
-void drawPrayerWeatherClock(bool colonVisible) {
+void drawPrayerWeatherClock(bool colonVisible)
+{
   char timeStr[16];
   char ampmStr[6];
   char dateStr[32];
   getTimeAndDate(timeStr, sizeof(timeStr), ampmStr, sizeof(ampmStr), dateStr, sizeof(dateStr));
   timeStr[2] = '\0';
-  const char* minutes = timeStr + 3;
+  const char *minutes = timeStr + 3;
 
-  if (prayerClockSpriteReady) {
+  if (prayerClockSpriteReady)
+  {
     prayerClockSprite.fillSprite(0);
     prayerClockSprite.setTextDatum(TL_DATUM);
     prayerClockSprite.setTextColor(1, 0);
@@ -395,11 +477,14 @@ void drawPrayerWeatherClock(bool colonVisible) {
     int colonX = minuteX - colonWidth;
     int hourX = colonX - hourWidth;
     prayerClockSprite.drawString(timeStr, hourX, 0, 6);
-    if (colonVisible) prayerClockSprite.drawString(":", colonX, 0, 6);
+    if (colonVisible)
+      prayerClockSprite.drawString(":", colonX, 0, 6);
     prayerClockSprite.drawString(minutes, minuteX, 0, 6);
     prayerClockSprite.setBitmapColor(0xFDA0, TFT_BLACK);
     prayerClockSprite.pushSprite(PRAYER_CLOCK_X, PRAYER_CLOCK_Y);
-  } else {
+  }
+  else
+  {
     timeStr[2] = colonVisible ? ':' : ' ';
     tft.fillRect(PRAYER_CLOCK_X, PRAYER_CLOCK_Y, PRAYER_CLOCK_W, PRAYER_CLOCK_H, TFT_BLACK);
     tft.setTextDatum(TR_DATUM);
@@ -408,104 +493,189 @@ void drawPrayerWeatherClock(bool colonVisible) {
   }
 }
 
-int prayerMinutes(const char* value) {
-  if (!value || strlen(value) < 5) return 0;
-  return ((value[0] - '0') * 10 + (value[1] - '0')) * 60
-       + (value[3] - '0') * 10 + (value[4] - '0');
+int prayerMinutes(const char *value)
+{
+  if (!value || strlen(value) < 5)
+    return 0;
+  return ((value[0] - '0') * 10 + (value[1] - '0')) * 60 + (value[3] - '0') * 10 + (value[4] - '0');
 }
 
-void getNextPrayer(int &activeIdx, const char* &label) {
+void getNextPrayer(int &activeIdx, const char *&label)
+{
   time_t now = time(nullptr);
-  struct tm* ti = localtime(&now);
+  struct tm *ti = localtime(&now);
   int curMin = (ti ? ti->tm_hour : 8) * 60 + (ti ? ti->tm_min : 37);
 
-  if (curMin < prayerMinutes(prayerCache.fajr)) {
+  if (curMin < prayerMinutes(prayerCache.fajr))
+  {
     activeIdx = 0;
     label = "NEXT: FAJR";
-  } else if (curMin < prayerMinutes(prayerCache.dhuhr)) {
+  }
+  else if (curMin < prayerMinutes(prayerCache.dhuhr))
+  {
     activeIdx = 1;
     label = "NEXT: DHUHR";
-  } else if (curMin < prayerMinutes(prayerCache.asr)) {
+  }
+  else if (curMin < prayerMinutes(prayerCache.asr))
+  {
     activeIdx = 2;
     label = "NEXT: ASR";
-  } else if (curMin < prayerMinutes(prayerCache.maghrib)) {
+  }
+  else if (curMin < prayerMinutes(prayerCache.maghrib))
+  {
     activeIdx = 3;
     label = "NEXT: MAGHRIB";
-  } else if (curMin < prayerMinutes(prayerCache.isha)) {
+  }
+  else if (curMin < prayerMinutes(prayerCache.isha))
+  {
     activeIdx = 4;
     label = "NEXT: ISHA";
-  } else {
+  }
+  else
+  {
     activeIdx = 0;
     label = "NEXT: FAJR";
   }
 }
 
-void drawPrayerWeatherSchedule() {
-  int activeIdx = 0;
-  const char* nextPrayerLabel = "NEXT: FAJR";
-  getNextPrayer(activeIdx, nextPrayerLabel);
+void getNextPrayerDetails(int &activeIdx, const char *&label, const char *&timeVal, const char *&endTimeVal, char *countdownBuf, size_t countdownLen)
+{
+  time_t now = time(nullptr);
+  struct tm *ti = localtime(&now);
+  int curMin = ti ? (ti->tm_hour * 60 + ti->tm_min) : 740;
 
-  tft.fillRect(8, 86, 224, 40, TFT_BLACK);
+  int fajrM = prayerMinutes(prayerCache.fajr);
+  int dhuhrM = prayerMinutes(prayerCache.dhuhr);
+  int asrM = prayerMinutes(prayerCache.asr);
+  int maghribM = prayerMinutes(prayerCache.maghrib);
+  int ishaM = prayerMinutes(prayerCache.isha);
 
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(0x8410, TFT_BLACK);
-  tft.drawString("PRAYER TIMES", 10, 88, 1);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(0xFDA0, TFT_BLACK);
-  tft.drawString(nextPrayerLabel, 230, 88, 1);
-
-  char f12[8], d12[8], a12[8], m12[8], i12[8];
-  formatPrayerTime(prayerCache.fajr, f12, sizeof(f12));
-  formatPrayerTime(prayerCache.dhuhr, d12, sizeof(d12));
-  formatPrayerTime(prayerCache.asr, a12, sizeof(a12));
-  formatPrayerTime(prayerCache.maghrib, m12, sizeof(m12));
-  formatPrayerTime(prayerCache.isha, i12, sizeof(i12));
-
-  const char* names[5] = {"FAJR", "DHUHR", "ASR", "MAGRIB", "ISHA"};
-  const char* times[5] = {f12, d12, a12, m12, i12};
-
-  const int cellW = 41;
-  const int startX = 10;
-  const int cellY = 99;
-
-  for (int i = 0; i < 5; i++) {
-    int cx = startX + i * (cellW + 4);
-    bool isNext = (i == activeIdx);
-    
-    uint16_t bg = isNext ? 0x21C5 : 0x10A2;
-    uint16_t border = isNext ? 0xFDA0 : 0x31A6;
-    tft.fillRoundRect(cx, cellY, cellW, 26, 3, bg);
-    tft.drawRoundRect(cx, cellY, cellW, 26, 3, border);
-
-    tft.setTextDatum(TC_DATUM);
-    tft.setTextColor(isNext ? 0xFDA0 : 0x8C71, bg);
-    tft.drawString(names[i], cx + (cellW / 2), cellY + 3, 1);
-
-    tft.setTextColor(isNext ? 0xFFFF : 0xCE79, bg);
-    tft.drawString(times[i], cx + (cellW / 2), cellY + 14, 1);
+  int targetM = 0;
+  if (curMin < fajrM)
+  {
+    activeIdx = 0;
+    label = "FAJR";
+    timeVal = prayerCache.fajr;
+    endTimeVal = strlen(prayerCache.sunrise) > 0 ? prayerCache.sunrise : prayerCache.dhuhr;
+    targetM = fajrM;
   }
+  else if (curMin < dhuhrM)
+  {
+    activeIdx = 1;
+    label = "DHUHR";
+    timeVal = prayerCache.dhuhr;
+    endTimeVal = prayerCache.asr;
+    targetM = dhuhrM;
+  }
+  else if (curMin < asrM)
+  {
+    activeIdx = 2;
+    label = "ASR";
+    timeVal = prayerCache.asr;
+    endTimeVal = prayerCache.maghrib;
+    targetM = asrM;
+  }
+  else if (curMin < maghribM)
+  {
+    activeIdx = 3;
+    label = "MAGHRIB";
+    timeVal = prayerCache.maghrib;
+    endTimeVal = prayerCache.isha;
+    targetM = maghribM;
+  }
+  else if (curMin < ishaM)
+  {
+    activeIdx = 4;
+    label = "ISHA";
+    timeVal = prayerCache.isha;
+    endTimeVal = prayerCache.fajr;
+    targetM = ishaM;
+  }
+  else
+  {
+    activeIdx = 0;
+    label = "FAJR";
+    timeVal = prayerCache.fajr;
+    endTimeVal = strlen(prayerCache.sunrise) > 0 ? prayerCache.sunrise : prayerCache.dhuhr;
+    targetM = fajrM + 1440;
+  }
+
+  int diff = targetM >= curMin ? (targetM - curMin) : (targetM + 1440 - curMin);
+  int dh = diff / 60;
+  int dm = diff % 60;
+  if (dh > 0)
+    snprintf(countdownBuf, countdownLen, "in %dh %dm", dh, dm);
+  else
+    snprintf(countdownBuf, countdownLen, "in %dm", dm);
 }
 
-void drawPrayerWeatherDate() {
+void drawPrayerWeatherSchedule()
+{
+  int activeIdx = 0;
+  const char *nextName = "FAJR";
+  const char *nextTimeRaw = prayerCache.fajr;
+  const char *endTimeRaw = prayerCache.sunrise;
+  char countdown[20] = "in 0m";
+  getNextPrayerDetails(activeIdx, nextName, nextTimeRaw, endTimeRaw, countdown, sizeof(countdown));
+
+  char nextTime12[12];
+  formatPrayerTime(nextTimeRaw, nextTime12, sizeof(nextTime12));
+  char endTime12[12];
+  formatPrayerTime(endTimeRaw, endTime12, sizeof(endTime12));
+
+  // Hero Next Prayer Card (Y: 82 to 144, height 62) - Spacious, Non-overlapping, High Contrast
+  tft.fillRoundRect(10, 82, 220, 62, 6, 0x0842); // Dark slate card background
+  tft.drawRoundRect(10, 82, 220, 62, 6, 0xFDA0); // Gold glowing border
+
+  // Row 1 (Y: 87): Bold Prayer Name (Left, Font 4, White) & Start Time (Right, Font 4, Gold/Yellow)
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(TFT_WHITE, 0x0842);
+  tft.drawString(nextName, 20, 87, 4);
+
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(0xFFE0, 0x0842);
+  tft.drawString(nextTime12, 220, 87, 4);
+
+  // Subtle interior divider line at Y: 115
+  tft.drawFastHLine(20, 115, 200, 0x1926);
+
+  // Row 2 (Y: 119): Next Countdown (Left, Font 2, Cyan) & End Time (Right, Font 2, Amber)
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(0x3DFE, 0x0842);
+  char nextCountdown[32];
+  snprintf(nextCountdown, sizeof(nextCountdown), "NEXT %s", countdown);
+  tft.drawString(nextCountdown, 20, 119, 2);
+
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(0xFDA0, 0x0842);
+  char endStr[24];
+  snprintf(endStr, sizeof(endStr), "Ends %s", endTime12);
+  tft.drawString(endStr, 220, 119, 2);
+}
+
+void drawPrayerWeatherDate()
+{
   char timeStr[16];
   char ampmStr[6];
   char dateStr[32];
   getTimeAndDate(timeStr, sizeof(timeStr), ampmStr, sizeof(ampmStr), dateStr, sizeof(dateStr));
 
-  tft.fillRect(218, 27, 22, 12, TFT_BLACK);
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
+  tft.fillRect(218, 20, 22, 12, TFT_BLACK);
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(0xFFE0, TFT_BLACK);
-    tft.drawString(ampmStr, 238, 28, 1);
+    tft.drawString(ampmStr, 238, 20, 1);
   }
 
-  tft.fillRect(74, 72, 158, 16, TFT_BLACK);
+  tft.fillRect(74, 62, 158, 17, TFT_BLACK);
   tft.setTextDatum(TR_DATUM);
   tft.setTextColor(0x3E1F, TFT_BLACK);
-  tft.drawString(dateStr, 230, 72, 2);
+  tft.drawString(dateStr, 230, 62, 2);
 }
 
-void renderThemePrayerWeather() {
+void renderThemePrayerWeather()
+{
   tft.fillScreen(TFT_BLACK); // Pure Inky Black
 
   tft.setTextDatum(TL_DATUM);
@@ -518,14 +688,15 @@ void renderThemePrayerWeather() {
   tft.setTextColor(isConnected ? 0x3E1F : 0xFD20, TFT_BLACK);
   tft.drawString(isConnected ? "ONLINE" : "SETUP", 218, 9, 1);
 
-  drawSunAndCloud(10, 26, 0);
+  drawSunAndCloud(10, 18, 0);
   drawPrayerWeatherClock(true);
   drawPrayerWeatherDate();
   drawPrayerWeatherSchedule();
 
+  // Weather Condition & Current Temperature (Y: 152 to 168)
   tft.setTextDatum(TL_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(weatherCache.condition, 10, 134, 2);
+  tft.drawString(weatherCache.condition, 12, 152, 2);
 
   char tempBuf[12];
   snprintf(tempBuf, sizeof(tempBuf), "%d C", weatherCache.temp);
@@ -533,35 +704,45 @@ void renderThemePrayerWeather() {
   formatPrayerTime(weatherCache.sunset, sunsetDisplay, sizeof(sunsetDisplay));
   tft.setTextDatum(TR_DATUM);
   tft.setTextColor(0xFFE0, TFT_BLACK);
-  tft.drawString(tempBuf, 230, 134, 2);
+  tft.drawString(tempBuf, 228, 152, 2);
 
-  tft.drawFastHLine(10, 156, 220, 0x2124);
+  // Separator line at Y: 172
+  tft.drawFastHLine(10, 172, 220, 0x2124);
 
+  // Bottom 3 Columns: TEMP, HUMIDITY, SUNSET (Y: 180 to 220)
   const int columns[3] = {44, 120, 196};
+
+  // Row 1: Labels (Y: 180)
   tft.setTextDatum(TC_DATUM);
   tft.setTextColor(0xFD20, TFT_BLACK);
-  tft.drawString("TEMP", columns[0], 169, 1);
+  tft.drawString("TEMP", columns[0], 180, 2);
+
+  tft.setTextColor(0x3DFE, TFT_BLACK);
+  tft.drawString("HUMIDITY", columns[1], 180, 2);
+
+  tft.setTextColor(0xFC00, TFT_BLACK);
+  tft.drawString("SUNSET", columns[2], 180, 2);
+
+  // Row 2: Values (Y: 200)
   tft.setTextColor(0xFFE0, TFT_BLACK);
-  tft.drawString(tempBuf, columns[0], 185, 2);
+  tft.drawString(tempBuf, columns[0], 200, 2);
 
   char humidityBuf[12];
   snprintf(humidityBuf, sizeof(humidityBuf), "%d%%", weatherCache.humidity);
-  tft.setTextColor(0x3E1F, TFT_BLACK);
-  tft.drawString("HUMIDITY", columns[1], 169, 1);
   tft.setTextColor(0x7E1F, TFT_BLACK);
-  tft.drawString(humidityBuf, columns[1], 185, 2);
+  tft.drawString(humidityBuf, columns[1], 200, 2);
 
-  tft.setTextColor(0xFC00, TFT_BLACK);
-  tft.drawString("SUNSET", columns[2], 169, 1);
   tft.setTextColor(0xFFE0, TFT_BLACK);
-  tft.drawString(sunsetDisplay, columns[2], 185, 2);
+  tft.drawString(sunsetDisplay, columns[2], 200, 2);
 }
 
 // -------------------------------------------------------------
 // THEME 2: Minimalist Editorial Clock & Single Weather Hero
 // -------------------------------------------------------------
-void renderThemeEditorialClock() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK); // Pure Inky Black
+void renderThemeEditorialClock()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK); // Pure Inky Black
 
   char timeStr[16];
   char ampmStr[6];
@@ -581,7 +762,8 @@ void renderThemeEditorialClock() {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.drawString(timeStr, 120, 85, 7); // Large font 7
 
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(0xFDA0, TFT_BLACK);
     tft.drawString(ampmStr, 224, 48, 2);
@@ -609,55 +791,108 @@ void renderThemeEditorialClock() {
 // -------------------------------------------------------------
 // THEME 3: Ultra-Clean Minimal Clock (Time + Date + AM/PM)
 // -------------------------------------------------------------
-void renderThemeMinimalClock() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK); // Pure Inky Black
+// -------------------------------------------------------------
+// THEME 3: Minimalist Clean Clock
+// -------------------------------------------------------------
+void drawMinimalClockColon(bool visible)
+{
+  uint16_t col = visible ? TFT_WHITE : TFT_BLACK;
+  tft.fillCircle(120, 68, 4, col);
+  tft.fillCircle(120, 96, 4, col);
+}
+
+void renderThemeMinimalClock()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK); // Pure Inky Black
 
   char timeStr[16];
   char ampmStr[6];
   char dateStr[32];
   getTimeAndDate(timeStr, sizeof(timeStr), ampmStr, sizeof(ampmStr), dateStr, sizeof(dateStr));
 
-  // Big Centered Time Digits
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(timeStr, 120, 90, 7);
-
-  // AM / PM Badge if 12h
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
-    tft.fillRoundRect(100, 138, 40, 20, 4, 0x2124);
-    tft.setTextColor(0xFDA0, 0x2124);
-    tft.drawString(ampmStr, 120, 148, 2);
+  char hourPart[4] = "12";
+  char minPart[4] = "00";
+  if (strlen(timeStr) >= 5)
+  {
+    hourPart[0] = timeStr[0];
+    hourPart[1] = timeStr[1];
+    hourPart[2] = '\0';
+    minPart[0] = timeStr[3];
+    minPart[1] = timeStr[4];
+    minPart[2] = '\0';
   }
 
-  // Full Clean Date
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(0xAD55, TFT_BLACK);
-  tft.drawString(dateStr, 120, 185, 2);
+  // Large Bold Hour (X: 108, right) and Minute (X: 132, left) in Font 6 (64px)
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(hourPart, 108, 52, 6);
 
-  // Tiny subtle status
-  tft.fillCircle(120, 222, 2, WiFi.status() == WL_CONNECTED ? TFT_GREEN : 0x4208);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString(minPart, 132, 52, 6);
+
+  // Dynamic Blinking Colon Dots
+  drawMinimalClockColon(((millis() / 500) % 2) == 0);
+
+  // AM / PM Badge if 12h (Y: 126)
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
+    int badgeW = 48;
+    int badgeH = 22;
+    int badgeX = 120 - (badgeW / 2);
+    int badgeY = 126;
+    tft.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 0x18E3);
+    tft.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 6, 0x3DFE);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(0x3DFE, 0x18E3);
+    tft.drawString(ampmStr, 120, 137, 2);
+  }
+
+  // Large, Highly-Readable Date in Font 4 (26px height)
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(0xFDA0, TFT_BLACK);
+  tft.drawString(dateStr, 120, 172, 4);
+
+  // Subtle clean live connectivity indicator at bottom
+  bool isConnected = (WiFi.status() == WL_CONNECTED);
+  tft.fillCircle(120, 218, 3, isConnected ? TFT_GREEN : 0x4208);
+  if (isConnected)
+  {
+    tft.drawCircle(120, 218, 5, 0x0200);
+  }
 }
 
 // -------------------------------------------------------------
 // THEME 4: AI Token & Rate Limit Monitor (Claude / Gemini / OpenAI)
 // -------------------------------------------------------------
-uint16_t getUsageColor565(int pct) {
-  if (pct < 0) return 0x7BEF;
-  if (pct >= 75) return TFT_GREEN;
-  if (pct >= 40) return TFT_YELLOW;
-  if (pct >= 15) return TFT_ORANGE;
-  return TFT_RED;                       // 0xF800
+uint16_t getUsageColor565(int pct)
+{
+  if (pct < 0)
+    return 0x7BEF;
+  if (pct >= 75)
+    return TFT_GREEN;
+  if (pct >= 40)
+    return TFT_YELLOW;
+  if (pct >= 15)
+    return TFT_ORANGE;
+  return TFT_RED; // 0xF800
 }
 
 // Show verified token counts even when the provider does not expose quota percentages.
-void formatTokenCount(long tokens, char* output, size_t outputSize) {
-  if (tokens >= 1000000) snprintf(output, outputSize, "%.1fM", tokens / 1000000.0);
-  else if (tokens >= 1000) snprintf(output, outputSize, "%.1fk", tokens / 1000.0);
-  else snprintf(output, outputSize, "%ld", tokens);
+void formatTokenCount(long tokens, char *output, size_t outputSize)
+{
+  if (tokens >= 1000000)
+    snprintf(output, outputSize, "%.1fM", tokens / 1000000.0);
+  else if (tokens >= 1000)
+    snprintf(output, outputSize, "%.1fk", tokens / 1000.0);
+  else
+    snprintf(output, outputSize, "%ld", tokens);
 }
 
-void renderThemeTokenMonitor() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+void renderThemeTokenMonitor()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK);
 
   char timeStr[16];
   char ampmStr[6];
@@ -669,7 +904,8 @@ void renderThemeTokenMonitor() {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.drawString(timeStr, 12, 10, 4);
 
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
     tft.setTextColor(0xFDA0, TFT_BLACK);
     tft.drawString(ampmStr, tft.textWidth(timeStr, 4) + 16, 12, 2);
   }
@@ -677,25 +913,35 @@ void renderThemeTokenMonitor() {
   // Provider Pill Tag (top-right) with Model Sub-Badge
   uint16_t pillBg = 0x2124;
   uint16_t pillText = TFT_WHITE;
-  if (strstr(tokenCache.provider, "Claude")) {
+  if (strstr(tokenCache.provider, "Claude"))
+  {
     pillBg = 0x4100; // Dark Amber
     pillText = 0xFDA0;
-  } else if (strstr(tokenCache.provider, "Gemini")) {
+  }
+  else if (strstr(tokenCache.provider, "Gemini"))
+  {
     pillBg = 0x0210; // Dark Cyan
     pillText = 0x3DFE;
-  } else if (strstr(tokenCache.provider, "Open") || strstr(tokenCache.provider, "Codex") || strstr(tokenCache.provider, "GPT")) {
+  }
+  else if (strstr(tokenCache.provider, "Open") || strstr(tokenCache.provider, "Codex") || strstr(tokenCache.provider, "GPT"))
+  {
     pillBg = 0x0200; // Dark Green
     pillText = TFT_GREEN;
-  } else if (strstr(tokenCache.provider, "OpenCode")) {
+  }
+  else if (strstr(tokenCache.provider, "OpenCode"))
+  {
     pillBg = 0x2810; // Dark Purple
     pillText = 0xBDF7;
   }
 
   char modelClean[24] = "";
-  if (strlen(tokenCache.model) > 0 && strcmp(tokenCache.model, "null") != 0 && strcmp(tokenCache.model, "Model unavailable") != 0) {
-    const char* m = tokenCache.model;
-    if (strncmp(m, "Gemini ", 7) == 0) m += 7;
-    else if (strncmp(m, "Claude ", 7) == 0) m += 7;
+  if (strlen(tokenCache.model) > 0 && strcmp(tokenCache.model, "null") != 0 && strcmp(tokenCache.model, "Model unavailable") != 0)
+  {
+    const char *m = tokenCache.model;
+    if (strncmp(m, "Gemini ", 7) == 0)
+      m += 7;
+    else if (strncmp(m, "Claude ", 7) == 0)
+      m += 7;
     strlcpy(modelClean, m, sizeof(modelClean));
   }
 
@@ -709,8 +955,10 @@ void renderThemeTokenMonitor() {
   int modelBadgeW = hasModel ? (modelTextW + 8) : 0;
 
   // If combined width exceeds bounds, shorten prefix
-  if (hasModel && (timeRight + 22 + provW + modelBadgeW > 228)) {
-    if (strncmp(modelClean, "GPT-", 4) == 0) {
+  if (hasModel && (timeRight + 22 + provW + modelBadgeW > 228))
+  {
+    if (strncmp(modelClean, "GPT-", 4) == 0)
+    {
       char tmp[24];
       strlcpy(tmp, modelClean + 4, sizeof(tmp));
       strlcpy(modelClean, tmp, sizeof(modelClean));
@@ -721,7 +969,8 @@ void renderThemeTokenMonitor() {
 
   int pillW = 22 + provW + (hasModel ? (4 + modelBadgeW) : 0);
   int pillX = 228 - pillW;
-  if (pillX < timeRight) {
+  if (pillX < timeRight)
+  {
     pillX = timeRight;
     pillW = 228 - pillX;
   }
@@ -732,15 +981,19 @@ void renderThemeTokenMonitor() {
   // Draw actual provider icon
   int iconX = pillX + 9;
   int iconY = 20;
-  if (strstr(tokenCache.provider, "Gemini")) {
+  if (strstr(tokenCache.provider, "Gemini"))
+  {
     // 4-pointed Gemini star sparkle
     tft.fillTriangle(iconX, iconY - 6, iconX - 2, iconY, iconX + 2, iconY, pillText);
     tft.fillTriangle(iconX, iconY + 6, iconX - 2, iconY, iconX + 2, iconY, pillText);
     tft.fillTriangle(iconX - 6, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
     tft.fillTriangle(iconX + 6, iconY, iconX, iconY - 2, iconX, iconY + 2, pillText);
-  } else if (strstr(tokenCache.provider, "Open") || strstr(tokenCache.provider, "Codex") || strstr(tokenCache.provider, "GPT")) {
+  }
+  else if (strstr(tokenCache.provider, "Open") || strstr(tokenCache.provider, "Codex") || strstr(tokenCache.provider, "GPT"))
+  {
     // 6-lobed spiral rosette (OpenAI logo)
-    for (int a = 0; a < 360; a += 60) {
+    for (int a = 0; a < 360; a += 60)
+    {
       float rad = a * 0.01745329f;
       float rad2 = (a + 40) * 0.01745329f;
       int x1 = iconX + (int)(cos(rad) * 1.8f);
@@ -750,13 +1003,17 @@ void renderThemeTokenMonitor() {
       tft.drawLine(x1, y1, x2, y2, pillText);
     }
     tft.drawCircle(iconX, iconY, 1, pillText);
-  } else if (strstr(tokenCache.provider, "Claude")) {
+  }
+  else if (strstr(tokenCache.provider, "Claude"))
+  {
     // Claude 8-pointed star
     tft.drawFastHLine(iconX - 5, iconY, 11, pillText);
     tft.drawFastVLine(iconX, iconY - 5, 11, pillText);
     tft.drawLine(iconX - 4, iconY - 4, iconX + 4, iconY + 4, pillText);
     tft.drawLine(iconX - 4, iconY + 4, iconX + 4, iconY - 4, pillText);
-  } else {
+  }
+  else
+  {
     // OpenCode bracket
     tft.drawRect(iconX - 4, iconY - 4, 8, 9, pillText);
   }
@@ -766,7 +1023,8 @@ void renderThemeTokenMonitor() {
   tft.drawString(tokenCache.provider, pillX + 18, 20, 2);
 
   // Model Sub-Badge Pill
-  if (hasModel && (pillX + 18 + provW + 4 + modelBadgeW <= 228)) {
+  if (hasModel && (pillX + 18 + provW + 4 + modelBadgeW <= 228))
+  {
     int badgeX = pillX + 18 + provW + 4;
     int badgeY = 13;
     int badgeH = 14;
@@ -780,77 +1038,192 @@ void renderThemeTokenMonitor() {
   // Hairline separator
   tft.drawFastHLine(12, 42, 216, 0x2965);
 
-  // Meter 1: Session / Rate Limit (Y: 50)
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(pillText, TFT_BLACK);
-  bool hasSessionUsage = tokenCache.sessionTokens > 0;
-  bool hasWeeklyUsage = tokenCache.weeklyTokens > 0;
-  const char* sessionMeterLabel = tokenCache.sessionPct < 0 && hasSessionUsage ? "TOKENS USED" : (strlen(tokenCache.sessionLabel) > 0 ? tokenCache.sessionLabel : "5-HOUR LIMIT");
-  const char* weeklyMeterLabel = tokenCache.weeklyPct < 0 && hasWeeklyUsage ? "SESSION TOTAL" : (strlen(tokenCache.weeklyLabel) > 0 ? tokenCache.weeklyLabel : "WEEKLY LIMIT");
-  tft.drawString(sessionMeterLabel, 12, 52, 2);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(0xFDA0, TFT_BLACK);
-  tft.drawString(tokenCache.sessionPct >= 0 ? tokenCache.sessionReset : "--", 228, 52, 2);
+  if (strstr(tokenCache.provider, "Gemini"))
+  {
+    // -------------------------------------------------------------
+    // DEDICATED GEMINI LAYOUT: 2 Radial Gauges + 1 Horizontal Bar
+    // -------------------------------------------------------------
+    auto drawGaugeRing = [](int cx, int cy, int r, int th, int pct, uint16_t arcCol, uint16_t bgCol)
+    {
+      for (int a = 0; a < 360; a += 4)
+      {
+        float rad = (a - 90) * 0.01745329f;
+        for (int t = 0; t < th; ++t)
+        {
+          int px = cx + (int)(cos(rad) * (r - t));
+          int py = cy + (int)(sin(rad) * (r - t));
+          tft.drawPixel(px, py, bgCol);
+        }
+      }
+      int endDeg = constrain((pct * 360) / 100, 0, 360);
+      for (int a = 0; a < endDeg; a += 2)
+      {
+        float rad = (a - 90) * 0.01745329f;
+        for (int t = 0; t < th; ++t)
+        {
+          int px = cx + (int)(cos(rad) * (r - t));
+          int py = cy + (int)(sin(rad) * (r - t));
+          tft.drawPixel(px, py, arcCol);
+        }
+      }
+    };
 
-  // Track & Fill Bar
-  int barW = 216;
-  int barH = 10;
-  tft.fillRoundRect(12, 72, barW, barH, 4, 0x18E3); // Dark slate track
-  int filledW1 = tokenCache.sessionPct >= 0 ? constrain((tokenCache.sessionPct * barW) / 100, 0, barW) : 0;
-  if (filledW1 > 0) {
-    tft.fillRoundRect(12, 72, filledW1, barH, 4, getUsageColor565(tokenCache.sessionPct));
+    int p1 = tokenCache.sessionPct >= 0 ? tokenCache.sessionPct : 0;
+    int p2 = tokenCache.weeklyPct >= 0 ? tokenCache.weeklyPct : 0;
+    uint16_t c1 = getUsageColor565(p1);
+    uint16_t c2 = getUsageColor565(p2);
+
+    // Card 1: 5-Hour Limit (Left: Center X=64, Center Y=94, R=25)
+    tft.fillRoundRect(12, 48, 104, 94, 6, 0x0842);
+    tft.drawRoundRect(12, 48, 104, 94, 6, 0x18E3);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextColor(0x9CD3, 0x0842);
+    tft.drawString("5-HOUR LIMIT", 64, 52, 1);
+
+    drawGaugeRing(64, 88, 25, 4, p1, c1, 0x18E3);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(c1, 0x0842);
+    char p1Str[12];
+    snprintf(p1Str, sizeof(p1Str), "%d%%", p1);
+    tft.drawString(p1Str, 64, 88, 2);
+
+    tft.setTextDatum(BC_DATUM);
+    tft.setTextColor(0x3DFE, 0x0842);
+    char r1Str[20];
+    snprintf(r1Str, sizeof(r1Str), "%s", tokenCache.sessionReset);
+    tft.drawString(r1Str, 64, 138, 1);
+
+    // Card 2: Weekly Limit (Right: Center X=176, Center Y=94, R=25)
+    tft.fillRoundRect(124, 48, 104, 94, 6, 0x0842);
+    tft.drawRoundRect(124, 48, 104, 94, 6, 0x18E3);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextColor(0x9CD3, 0x0842);
+    tft.drawString("WEEKLY LIMIT", 176, 52, 1);
+
+    drawGaugeRing(176, 88, 25, 4, p2, c2, 0x18E3);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(c2, 0x0842);
+    char p2Str[12];
+    snprintf(p2Str, sizeof(p2Str), "%d%%", p2);
+    tft.drawString(p2Str, 176, 88, 2);
+
+    tft.setTextDatum(BC_DATUM);
+    tft.setTextColor(0x3DFE, 0x0842);
+    char r2Str[20];
+    snprintf(r2Str, sizeof(r2Str), "%s", tokenCache.weeklyReset);
+    tft.drawString(r2Str, 176, 138, 1);
+
+    // One Horizontal Bar: Tokens Used (Y: 148 to 174)
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(0x9CD3, TFT_BLACK);
+    tft.drawString("TOKENS USED", 12, 150, 2);
+
+    char tokBuf[24] = "0 tok";
+    if (tokenCache.sessionTokens > 0)
+    {
+      char compact[12];
+      formatTokenCount(tokenCache.sessionTokens, compact, sizeof(compact));
+      snprintf(tokBuf, sizeof(tokBuf), "%s used", compact);
+    }
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(0x3DFE, TFT_BLACK);
+    tft.drawString(tokBuf, 228, 150, 2);
+
+    int barW = 216;
+    int barH = 6;
+    tft.fillRoundRect(12, 168, barW, barH, 3, 0x18E3);
+    int filledW = tokenCache.sessionTokens > 0 ? constrain((int)((tokenCache.sessionTokens * barW) / 200000), 12, barW) : constrain((p1 * barW) / 100, 12, barW);
+    tft.fillRoundRect(12, 168, filledW, barH, 3, 0x3DFE);
   }
+  else
+  {
+    // -------------------------------------------------------------
+    // STANDARD DUAL HORIZONTAL BARS FOR OTHER PROVIDERS (Codex, etc.)
+    // -------------------------------------------------------------
+    // Meter 1: Session / Rate Limit (Y: 50)
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(pillText, TFT_BLACK);
+    bool hasSessionUsage = tokenCache.sessionTokens > 0;
+    bool hasWeeklyUsage = tokenCache.weeklyTokens > 0;
+    const char *sessionMeterLabel = tokenCache.sessionPct < 0 && hasSessionUsage ? "TOKENS USED" : (strlen(tokenCache.sessionLabel) > 0 ? tokenCache.sessionLabel : "5-HOUR LIMIT");
+    const char *weeklyMeterLabel = tokenCache.weeklyPct < 0 && hasWeeklyUsage ? "SESSION TOTAL" : (strlen(tokenCache.weeklyLabel) > 0 ? tokenCache.weeklyLabel : "WEEKLY LIMIT");
+    tft.drawString(sessionMeterLabel, 12, 52, 2);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(0xFDA0, TFT_BLACK);
+    tft.drawString(tokenCache.sessionPct >= 0 ? tokenCache.sessionReset : "--", 228, 52, 2);
 
-  // Sub-row: Percentage Remaining (left), "%" (right)
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(0xCE79, TFT_BLACK);
-  char sessionUsageBuf[24];
-  if (tokenCache.sessionPct < 0 && hasSessionUsage) {
-    char compact[12];
-    formatTokenCount(tokenCache.sessionTokens, compact, sizeof(compact));
-    snprintf(sessionUsageBuf, sizeof(sessionUsageBuf), "%s used", compact);
-  } else {
-    strlcpy(sessionUsageBuf, tokenCache.sessionPct >= 0 ? tokenCache.sessionText : "UNAVAILABLE", sizeof(sessionUsageBuf));
+    // Track & Fill Bar
+    int barW = 216;
+    int barH = 10;
+    tft.fillRoundRect(12, 72, barW, barH, 4, 0x18E3); // Dark slate track
+    int filledW1 = tokenCache.sessionPct >= 0 ? constrain((tokenCache.sessionPct * barW) / 100, 0, barW) : 0;
+    if (filledW1 > 0)
+    {
+      tft.fillRoundRect(12, 72, filledW1, barH, 4, getUsageColor565(tokenCache.sessionPct));
+    }
+
+    // Sub-row: Percentage Remaining (left), "%" (right)
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(0xCE79, TFT_BLACK);
+    char sessionUsageBuf[24];
+    if (tokenCache.sessionPct < 0 && hasSessionUsage)
+    {
+      char compact[12];
+      formatTokenCount(tokenCache.sessionTokens, compact, sizeof(compact));
+      snprintf(sessionUsageBuf, sizeof(sessionUsageBuf), "%s used", compact);
+    }
+    else
+    {
+      strlcpy(sessionUsageBuf, tokenCache.sessionPct >= 0 ? tokenCache.sessionText : "UNAVAILABLE", sizeof(sessionUsageBuf));
+    }
+    tft.drawString(sessionUsageBuf, 12, 88, 2);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(getUsageColor565(tokenCache.sessionPct), TFT_BLACK);
+    char pct1Buf[12];
+    if (tokenCache.sessionPct >= 0)
+      snprintf(pct1Buf, sizeof(pct1Buf), "%d%%", tokenCache.sessionPct);
+    else
+      strlcpy(pct1Buf, "--", sizeof(pct1Buf));
+    tft.drawString(pct1Buf, 228, 88, 2);
+
+    // Meter 2: Weekly Quota / Daily Output (Y: 114)
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(0x9CD3, TFT_BLACK);
+    tft.drawString(weeklyMeterLabel, 12, 114, 2);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(0xAD55, TFT_BLACK);
+    tft.drawString(tokenCache.weeklyPct >= 0 ? tokenCache.weeklyReset : "--", 228, 114, 2);
+
+    tft.fillRoundRect(12, 134, barW, barH, 4, 0x18E3);
+    int filledW2 = tokenCache.weeklyPct >= 0 ? constrain((tokenCache.weeklyPct * barW) / 100, 0, barW) : 0;
+    if (filledW2 > 0)
+    {
+      tft.fillRoundRect(12, 134, filledW2, barH, 4, getUsageColor565(tokenCache.weeklyPct));
+    }
+
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(0xCE79, TFT_BLACK);
+    char weeklyUsageBuf[24];
+    if (tokenCache.weeklyPct < 0 && hasWeeklyUsage)
+    {
+      char compact[12];
+      formatTokenCount(tokenCache.weeklyTokens, compact, sizeof(compact));
+      snprintf(weeklyUsageBuf, sizeof(weeklyUsageBuf), "%s total", compact);
+    }
+    else
+    {
+      strlcpy(weeklyUsageBuf, tokenCache.weeklyPct >= 0 ? tokenCache.weeklyText : "UNAVAILABLE", sizeof(weeklyUsageBuf));
+    }
+    tft.drawString(weeklyUsageBuf, 12, 150, 2);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextColor(getUsageColor565(tokenCache.weeklyPct), TFT_BLACK);
+    char pct2Buf[12];
+    if (tokenCache.weeklyPct >= 0)
+      snprintf(pct2Buf, sizeof(pct2Buf), "%d%%", tokenCache.weeklyPct);
+    else
+      strlcpy(pct2Buf, "--", sizeof(pct2Buf));
+    tft.drawString(pct2Buf, 228, 150, 2);
   }
-  tft.drawString(sessionUsageBuf, 12, 88, 2);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(getUsageColor565(tokenCache.sessionPct), TFT_BLACK);
-  char pct1Buf[12];
-  if (tokenCache.sessionPct >= 0) snprintf(pct1Buf, sizeof(pct1Buf), "%d%%", tokenCache.sessionPct);
-  else strlcpy(pct1Buf, "--", sizeof(pct1Buf));
-  tft.drawString(pct1Buf, 228, 88, 2);
-
-  // Meter 2: Weekly Quota / Daily Output (Y: 114)
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(0x9CD3, TFT_BLACK);
-  tft.drawString(weeklyMeterLabel, 12, 114, 2);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(0xAD55, TFT_BLACK);
-  tft.drawString(tokenCache.weeklyPct >= 0 ? tokenCache.weeklyReset : "--", 228, 114, 2);
-
-  tft.fillRoundRect(12, 134, barW, barH, 4, 0x18E3);
-  int filledW2 = tokenCache.weeklyPct >= 0 ? constrain((tokenCache.weeklyPct * barW) / 100, 0, barW) : 0;
-  if (filledW2 > 0) {
-    tft.fillRoundRect(12, 134, filledW2, barH, 4, getUsageColor565(tokenCache.weeklyPct));
-  }
-
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(0xCE79, TFT_BLACK);
-  char weeklyUsageBuf[24];
-  if (tokenCache.weeklyPct < 0 && hasWeeklyUsage) {
-    char compact[12];
-    formatTokenCount(tokenCache.weeklyTokens, compact, sizeof(compact));
-    snprintf(weeklyUsageBuf, sizeof(weeklyUsageBuf), "%s total", compact);
-  } else {
-    strlcpy(weeklyUsageBuf, tokenCache.weeklyPct >= 0 ? tokenCache.weeklyText : "UNAVAILABLE", sizeof(weeklyUsageBuf));
-  }
-  tft.drawString(weeklyUsageBuf, 12, 150, 2);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(getUsageColor565(tokenCache.weeklyPct), TFT_BLACK);
-  char pct2Buf[12];
-  if (tokenCache.weeklyPct >= 0) snprintf(pct2Buf, sizeof(pct2Buf), "%d%%", tokenCache.weeklyPct);
-  else strlcpy(pct2Buf, "--", sizeof(pct2Buf));
-  tft.drawString(pct2Buf, 228, 150, 2);
 
   // Bottom Status Dock (Y: 182 - 228)
   bool isOnline = tokenCache.laptopConnected;
@@ -865,8 +1238,10 @@ void renderThemeTokenMonitor() {
 
   tft.setTextDatum(TR_DATUM);
   uint16_t stateCol = TFT_GREEN;
-  if (strcmp(tokenCache.agentState, "WORKING") == 0) stateCol = TFT_ORANGE;
-  else if (strcmp(tokenCache.agentState, "WAITING") == 0) stateCol = 0x3DFE;
+  if (strcmp(tokenCache.agentState, "WORKING") == 0)
+    stateCol = TFT_ORANGE;
+  else if (strcmp(tokenCache.agentState, "WAITING") == 0)
+    stateCol = 0x3DFE;
   tft.setTextColor(isOnline ? stateCol : 0x7BEF, dockBg);
   tft.drawString(isOnline ? tokenCache.agentState : "STANDBY", 218, 196, 2);
 }
@@ -874,8 +1249,10 @@ void renderThemeTokenMonitor() {
 // -------------------------------------------------------------
 // THEME 5: Cosmic Shuttle & Prayer Station
 // -------------------------------------------------------------
-void renderThemeShuttlePrayer() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+void renderThemeShuttlePrayer()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK);
 
   char timeStr[16];
   char ampmStr[6];
@@ -914,16 +1291,19 @@ void renderThemeShuttlePrayer() {
   tft.drawLine(26, 54, 44, 66, 0x18E3);
   tft.fillRoundRect(30, 50, 36, 8, 4, TFT_WHITE);
   tft.fillTriangle(62, 50, 68, 54, 62, 58, 0x18E3);
-  tft.fillRect(54, 52, 4, 3, 0x3DFE); // Cyan cockpit glass
+  tft.fillRect(54, 52, 4, 3, 0x3DFE);               // Cyan cockpit glass
   tft.fillTriangle(30, 51, 38, 38, 42, 51, 0xCE79); // Tail fin
   tft.drawLine(33, 49, 39, 40, TFT_RED);
   tft.fillRect(25, 52, 3, 4, 0x4208); // Engine nozzles
 
   // Dynamic exhaust plume animation
-  if (((millis() / 250) % 2) == 0) {
+  if (((millis() / 250) % 2) == 0)
+  {
     tft.fillTriangle(14, 54, 25, 51, 25, 57, TFT_ORANGE);
     tft.fillTriangle(19, 54, 25, 52, 25, 56, TFT_YELLOW);
-  } else {
+  }
+  else
+  {
     tft.fillTriangle(10, 54, 25, 50, 25, 58, 0xFDA0);
     tft.fillTriangle(17, 54, 25, 52, 25, 56, TFT_WHITE);
   }
@@ -933,7 +1313,8 @@ void renderThemeShuttlePrayer() {
   tft.setTextColor(0xFDA0, TFT_BLACK);
   tft.drawString(timeStr, 228, 30, 4);
 
-  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0) {
+  if (strcmp(deviceConfig.hourFormat, "12-Hour") == 0)
+  {
     tft.setTextColor(0xFDA0, TFT_BLACK);
     tft.drawString(ampmStr, 228, 52, 1);
   }
@@ -953,15 +1334,17 @@ void renderThemeShuttlePrayer() {
   tft.drawString(sunset12, 198, 64, 1);
 
   // Calculate dynamic next waqt & countdown
-  auto parseMin = [](const char* str) -> int {
-    if (!str || strlen(str) < 5) return 0;
+  auto parseMin = [](const char *str) -> int
+  {
+    if (!str || strlen(str) < 5)
+      return 0;
     int h = (str[0] - '0') * 10 + (str[1] - '0');
     int m = (str[3] - '0') * 10 + (str[4] - '0');
     return h * 60 + m;
   };
 
   time_t now = time(nullptr);
-  struct tm* ti = localtime(&now);
+  struct tm *ti = localtime(&now);
   int curMin = (ti ? ti->tm_hour : 8) * 60 + (ti ? ti->tm_min : 21);
   int curSec = (ti ? ti->tm_sec : 0);
   int curTotalSec = curMin * 60 + curSec;
@@ -974,29 +1357,40 @@ void renderThemeShuttlePrayer() {
 
   int activeIdx = 0;
   int targetSec = 0;
-  const char* nextName = "FAJR";
+  const char *nextName = "FAJR";
 
-  if (curMin < fMin) {
+  if (curMin < fMin)
+  {
     activeIdx = 0;
     targetSec = fMin * 60;
     nextName = "FAJR";
-  } else if (curMin < dMin) {
+  }
+  else if (curMin < dMin)
+  {
     activeIdx = 1;
     targetSec = dMin * 60;
     nextName = "DHUHR";
-  } else if (curMin < aMin) {
+  }
+  else if (curMin < aMin)
+  {
     activeIdx = 2;
     targetSec = aMin * 60;
     nextName = "ASR";
-  } else if (curMin < mMin) {
+  }
+  else if (curMin < mMin)
+  {
     activeIdx = 3;
     targetSec = mMin * 60;
     nextName = "MAGHRIB";
-  } else if (curMin < iMin) {
+  }
+  else if (curMin < iMin)
+  {
     activeIdx = 4;
     targetSec = iMin * 60;
     nextName = "ISHA";
-  } else {
+  }
+  else
+  {
     activeIdx = 0;
     targetSec = (fMin + 1440) * 60;
     nextName = "FAJR";
@@ -1039,22 +1433,24 @@ void renderThemeShuttlePrayer() {
   formatPrayerTime(prayerCache.isha, iStart, sizeof(iStart));
   formatPrayerTime(prayerCache.fajr, iEnd, sizeof(iEnd));
 
-  struct WaqtRow {
-    const char* name;
-    const char* start;
-    const char* end;
+  struct WaqtRow
+  {
+    const char *name;
+    const char *start;
+    const char *end;
   } rows[5] = {
-    {"Fajr", fStart, fEnd},
-    {"Dhuhr", dStart, dEnd},
-    {"Asr", aStart, aEnd},
-    {"Maghrib", mStart, mEnd},
-    {"Isha", iStart, iEnd}
-  };
+      {"Fajr", fStart, fEnd},
+      {"Dhuhr", dStart, dEnd},
+      {"Asr", aStart, aEnd},
+      {"Maghrib", mStart, mEnd},
+      {"Isha", iStart, iEnd}};
 
   int startY = 92;
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 5; ++i)
+  {
     int y = startY + i * 16;
-    if (i == activeIdx) {
+    if (i == activeIdx)
+    {
       // Highlighted Active / Upcoming Waqt Row
       tft.fillRoundRect(14, y - 3, 212, 16, 4, 0x31C0);
       tft.drawRoundRect(14, y - 3, 212, 16, 4, 0xFDA0);
@@ -1067,7 +1463,9 @@ void renderThemeShuttlePrayer() {
       tft.drawString(rows[i].start, 120, y, 1);
       tft.setTextDatum(TR_DATUM);
       tft.drawString(rows[i].end, 220, y, 1);
-    } else {
+    }
+    else
+    {
       tft.setTextDatum(TL_DATUM);
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.drawString(rows[i].name, 20, y, 1);
@@ -1107,26 +1505,31 @@ void renderThemeShuttlePrayer() {
 
 void renderCurrentTheme();
 
-bool copyPrayerTime(char* destination, size_t destinationSize, const char* source) {
-  if (!source || destinationSize < 6 || strlen(source) < 5 || source[2] != ':') return false;
+bool copyPrayerTime(char *destination, size_t destinationSize, const char *source)
+{
+  if (!source || destinationSize < 6 || strlen(source) < 5 || source[2] != ':')
+    return false;
   memcpy(destination, source, 5);
   destination[5] = '\0';
   return true;
 }
 
-bool refreshPrayerTimes() {
-  if (WiFi.status() != WL_CONNECTED) return false;
+bool refreshPrayerTimes()
+{
+  if (WiFi.status() != WL_CONNECTED)
+    return false;
 
   time_t now = time(nullptr);
-  struct tm* current = localtime(&now);
-  if (!current || current->tm_year + 1900 < 2024) return false;
+  struct tm *current = localtime(&now);
+  if (!current || current->tm_year + 1900 < 2024)
+    return false;
 
   char url[256];
   int school = strcasecmp(deviceConfig.asrMethod, "Hanafi") == 0 ? 1 : 0;
   snprintf(url, sizeof(url),
-    "https://api.aladhan.com/v1/timings/%02d-%02d-%04d?latitude=%.4f&longitude=%.4f&method=%s&school=%d",
-    current->tm_mday, current->tm_mon + 1, current->tm_year + 1900,
-    deviceConfig.latitude, deviceConfig.longitude, deviceConfig.prayerMethod, school);
+           "https://api.aladhan.com/v1/timings/%02d-%02d-%04d?latitude=%.4f&longitude=%.4f&method=%s&school=%d",
+           current->tm_mday, current->tm_mon + 1, current->tm_year + 1900,
+           deviceConfig.latitude, deviceConfig.longitude, deviceConfig.prayerMethod, school);
 
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
@@ -1134,10 +1537,12 @@ bool refreshPrayerTimes() {
   HTTPClient http;
   http.setTimeout(6000);
   http.useHTTP10(true);
-  if (!http.begin(client, url)) return false;
+  if (!http.begin(client, url))
+    return false;
 
   int status = http.GET();
-  if (status != HTTP_CODE_OK) {
+  if (status != HTTP_CODE_OK)
+  {
     http.end();
     return false;
   }
@@ -1145,7 +1550,8 @@ bool refreshPrayerTimes() {
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, http.getStream());
   http.end();
-  if (error || doc["code"] != 200) return false;
+  if (error || doc["code"] != 200)
+    return false;
 
   JsonObject timings = doc["data"]["timings"];
   char fajr[8], sunrise[8], dhuhr[8], asr[8], maghrib[8], isha[8];
@@ -1154,7 +1560,8 @@ bool refreshPrayerTimes() {
       !copyPrayerTime(dhuhr, sizeof(dhuhr), timings["Dhuhr"]) ||
       !copyPrayerTime(asr, sizeof(asr), timings["Asr"]) ||
       !copyPrayerTime(maghrib, sizeof(maghrib), timings["Maghrib"]) ||
-      !copyPrayerTime(isha, sizeof(isha), timings["Isha"])) return false;
+      !copyPrayerTime(isha, sizeof(isha), timings["Isha"]))
+    return false;
 
   strlcpy(prayerCache.fajr, fajr, sizeof(prayerCache.fajr));
   strlcpy(prayerCache.sunrise, sunrise, sizeof(prayerCache.sunrise));
@@ -1166,15 +1573,19 @@ bool refreshPrayerTimes() {
 }
 
 // THEME 6: Photo Frame & Ambient Album (240x240 ST7789 Direct Stream)
-void renderThemePhotoAlbum() {
-  if (LittleFS.exists("/photo.raw")) {
+void renderThemePhotoAlbum()
+{
+  if (LittleFS.exists("/photo.raw"))
+  {
     File f = LittleFS.open("/photo.raw", "r");
-    if (f && f.size() >= 115200) {
+    if (f && f.size() >= 115200)
+    {
       tft.startWrite();
       tft.setAddrWindow(0, 0, 240, 240);
       uint16_t lineBuf[240];
-      for (int y = 0; y < 240; y++) {
-        f.read((uint8_t*)lineBuf, sizeof(lineBuf));
+      for (int y = 0; y < 240; y++)
+      {
+        f.read((uint8_t *)lineBuf, sizeof(lineBuf));
         tft.pushColors(lineBuf, 240, false);
       }
       tft.endWrite();
@@ -1182,17 +1593,22 @@ void renderThemePhotoAlbum() {
 
       // Subtle translucent time badge overlay (bottom-right)
       time_t now = time(nullptr);
-      struct tm* t = localtime(&now);
-      if (t && t->tm_year + 1900 >= 2024) {
+      struct tm *t = localtime(&now);
+      if (t && t->tm_year + 1900 >= 2024)
+      {
         char timeBuf[12];
         bool is12h = strcmp(deviceConfig.hourFormat, "12-Hour") == 0;
         int h = t->tm_hour;
-        const char* ampm = h >= 12 ? "PM" : "AM";
-        if (is12h) {
+        const char *ampm = h >= 12 ? "PM" : "AM";
+        if (is12h)
+        {
           h = h % 12;
-          if (h == 0) h = 12;
+          if (h == 0)
+            h = 12;
           snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d %s", h, t->tm_min, ampm);
-        } else {
+        }
+        else
+        {
           snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d", h, t->tm_min);
         }
         tft.fillRoundRect(134, 208, 98, 24, 12, 0x10A2); // Dark slate
@@ -1203,7 +1619,8 @@ void renderThemePhotoAlbum() {
       }
       return;
     }
-    if (f) f.close();
+    if (f)
+      f.close();
   }
 
   // Placeholder when no photo is uploaded yet
@@ -1231,71 +1648,121 @@ void renderThemePhotoAlbum() {
 }
 
 // THEME 7: Analogue clock with Bengali, Hijri, and English calendar lines.
-void renderThemeAnalogCalendar() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+void renderThemeAnalogCalendar()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK);
   time_t now = time(nullptr);
-  struct tm* t = localtime(&now);
+  struct tm *t = localtime(&now);
   int hour = t ? t->tm_hour : 12;
   int minute = t ? t->tm_min : 0;
   int second = t ? t->tm_sec : 0;
 
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(deviceConfig.city, 10, 7, 2);
-  tft.setTextDatum(TR_DATUM);
-  tft.setTextColor(WiFi.status() == WL_CONNECTED ? TFT_GREEN : 0x7BEF, TFT_BLACK);
-  tft.drawString(WiFi.status() == WL_CONNECTED ? "LIVE" : "OFFLINE", 230, 9, 1);
+  // Prominent Clock Dial: Center (120, 68), Radius 62
+  const int cx = 120, cy = 68, radius = 62;
 
-  const int cx = 120, cy = 76, radius = 61;
-  tft.fillCircle(cx, cy, radius, 0x0861);
-  tft.drawCircle(cx, cy, radius, 0xFDA0);
-  tft.drawCircle(cx, cy, radius - 4, 0x2124);
-  for (int i = 0; i < 12; i++) {
+  // Outer Bezel: Dual polished ring (Outer Cyan 0x3DFE, Inner Gold 0xFDA0)
+  tft.drawCircle(cx, cy, radius + 1, 0x18E3);
+  tft.drawCircle(cx, cy, radius, 0x3DFE);
+  tft.drawCircle(cx, cy, radius - 1, 0xFDA0);
+  tft.fillCircle(cx, cy, radius - 2, 0x0002); // Deep midnight black dial
+
+  // Crisp High-Contrast Hour Markers
+  for (int i = 0; i < 12; i++)
+  {
     float angle = (i * 30 - 90) * 0.01745329f;
-    int x1 = cx + (int)(cos(angle) * (radius - 8));
-    int y1 = cy + (int)(sin(angle) * (radius - 8));
-    int x2 = cx + (int)(cos(angle) * (radius - 15));
-    int y2 = cy + (int)(sin(angle) * (radius - 15));
-    tft.drawLine(x1, y1, x2, y2, 0x9CD3);
+    bool isCardinal = (i % 3 == 0); // 12, 3, 6, 9
+    int r1 = radius - (isCardinal ? 4 : 5);
+    int r2 = radius - (isCardinal ? 14 : 10);
+    int x1 = cx + (int)(cos(angle) * r1);
+    int y1 = cy + (int)(sin(angle) * r1);
+    int x2 = cx + (int)(cos(angle) * r2);
+    int y2 = cy + (int)(sin(angle) * r2);
+
+    if (isCardinal)
+    {
+      tft.drawLine(x1, y1, x2, y2, 0xFDA0);
+      tft.drawLine(x1 + 1, y1, x2 + 1, y2, 0xFDA0);
+    }
+    else
+    {
+      tft.drawLine(x1, y1, x2, y2, TFT_WHITE);
+    }
   }
+
+  // Hands: Hour (white, width 4), Minute (gold, width 2), Second (cyan sweeping hand)
   float hourAngle = ((hour % 12) + minute / 60.0f) * 30.0f - 90.0f;
   float minuteAngle = (minute + second / 60.0f) * 6.0f - 90.0f;
   float secondAngle = second * 6.0f - 90.0f;
-  auto hand = [&](float degrees, int length, uint16_t color, int width) {
+
+  auto drawHand = [&](float degrees, int length, uint16_t color, int width)
+  {
     float angle = degrees * 0.01745329f;
     int x = cx + (int)(cos(angle) * length);
     int y = cy + (int)(sin(angle) * length);
-    for (int offset = 0; offset < width; offset++) tft.drawLine(cx + offset, cy, x + offset, y, color);
+    for (int off = -width / 2; off <= width / 2; off++)
+    {
+      tft.drawLine(cx + off, cy, x + off, y, color);
+      tft.drawLine(cx, cy + off, x, y + off, color);
+    }
   };
-  hand(hourAngle, 32, TFT_WHITE, 4);
-  hand(minuteAngle, 44, 0xFDA0, 2);
-  hand(secondAngle, 53, 0x3DFE, 1);
+
+  drawHand(hourAngle, 32, TFT_WHITE, 4);
+  drawHand(minuteAngle, 46, 0xFDA0, 2);
+
+  float sRad = secondAngle * 0.01745329f;
+  tft.drawLine(cx, cy, cx + (int)(cos(sRad) * 54), cy + (int)(sin(sRad) * 54), 0x3DFE);
   tft.fillCircle(cx, cy, 4, 0xFDA0);
+  tft.fillCircle(cx, cy, 2, TFT_WHITE);
+
+  // High-contrast separator at Y: 136
+  tft.drawFastHLine(10, 136, 220, 0x2965);
 
   char bangla[32], hijri[32], english[32];
   getCalendarDates(bangla, sizeof(bangla), hijri, sizeof(hijri), english, sizeof(english));
-  tft.drawFastHLine(10, 135, 220, 0x2965);
+
+  // Calendar Section - High-Contrast Font 2 (16px) Rows!
+  // Row 1 (Y: 144): English Date
   tft.setTextDatum(TL_DATUM);
+  tft.fillRoundRect(10, 142, 28, 18, 3, 0x18E3);
+  tft.setTextColor(0x9CD3, 0x18E3);
+  tft.drawString("EN", 16, 144, 2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(english, 44, 144, 2);
+
+  // Row 2 (Y: 168): Hijri Date
+  tft.fillRoundRect(10, 166, 28, 18, 3, 0x3100);
+  tft.setTextColor(0xFDA0, 0x3100);
+  tft.drawString("HIJ", 14, 168, 2);
   tft.setTextColor(0xFDA0, TFT_BLACK);
-  tft.drawString("BAN", 10, 145, 1);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(bangla, 42, 149, 1);
+  tft.drawString(hijri, 44, 168, 2);
+
+  // Row 3 (Y: 192): Bangla Date
+  tft.fillRoundRect(10, 190, 28, 18, 3, 0x0188);
+  tft.setTextColor(0x3DFE, 0x0188);
+  tft.drawString("BAN", 12, 192, 2);
   tft.setTextColor(0x3DFE, TFT_BLACK);
-  tft.drawString("HIJ", 10, 166, 1);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(hijri, 42, 166, 1);
+  tft.drawString(bangla, 44, 192, 2);
+
+  // Row 4 (Y: 218): Location & Live Status
   tft.setTextColor(0x9CD3, TFT_BLACK);
-  tft.drawString("EN", 10, 183, 1);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString(english, 42, 183, 1);
+  tft.drawString(deviceConfig.city, 12, 218, 2);
+  tft.setTextDatum(TR_DATUM);
+  bool isConnected = (WiFi.status() == WL_CONNECTED);
+  tft.fillCircle(226, 224, 3, isConnected ? TFT_GREEN : 0x7BEF);
+  tft.setTextColor(isConnected ? TFT_GREEN : 0x7BEF, TFT_BLACK);
+  tft.drawString(isConnected ? "LIVE" : "OFFLINE", 218, 218, 2);
 }
 
 // Compact no-extra-hardware utility themes. They intentionally use existing device telemetry.
-void renderThemeFeatureCard() {
-  if (!partialThemeRefresh) tft.fillScreen(TFT_BLACK);
+void renderThemeFeatureCard()
+{
+  if (!partialThemeRefresh)
+    tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TL_DATUM);
   tft.setTextColor(0x3DFE, TFT_BLACK);
-  if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0) {
+  if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0)
+  {
     tft.drawString("NETWORK HEALTH", 12, 12, 2);
     tft.setTextColor(0xFDA0, TFT_BLACK);
     tft.drawString(String(WiFi.RSSI()) + " dBm", 12, 42, 4);
@@ -1303,52 +1770,88 @@ void renderThemeFeatureCard() {
     tft.drawString(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE", 12, 88, 2);
     tft.drawString(WiFi.localIP().toString(), 12, 116, 2);
     tft.drawString("UPTIME " + String(millis() / 60000) + " MIN", 12, 164, 2);
-  } else if (strcmp(deviceConfig.theme, "Now Playing") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Now Playing") == 0)
+  {
     tft.drawString("NOW PLAYING", 12, 12, 2);
     tft.fillRoundRect(82, 42, 76, 76, 10, 0x2810);
-    tft.setTextDatum(MC_DATUM); tft.setTextColor(TFT_WHITE, 0x2810); tft.drawString(">", 120, 80, 6);
-    tft.setTextColor(0xFDA0, TFT_BLACK); tft.drawString(deviceConfig.nowPlayingTitle, 120, 146, 1);
-    tft.setTextColor(0x9CD3, TFT_BLACK); tft.drawString(deviceConfig.nowPlayingSource, 120, 174, 1);
-  } else if (strcmp(deviceConfig.theme, "Focus Timer") == 0) {
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(TFT_WHITE, 0x2810);
+    tft.drawString(">", 120, 80, 6);
+    tft.setTextColor(0xFDA0, TFT_BLACK);
+    tft.drawString(deviceConfig.nowPlayingTitle, 120, 146, 1);
+    tft.setTextColor(0x9CD3, TFT_BLACK);
+    tft.drawString(deviceConfig.nowPlayingSource, 120, 174, 1);
+  }
+  else if (strcmp(deviceConfig.theme, "Focus Timer") == 0)
+  {
     tft.drawString("FOCUS SESSION", 12, 12, 2);
-    char focusBuf[8]; snprintf(focusBuf, sizeof(focusBuf), "%02d:00", deviceConfig.focusMinutes); tft.setTextDatum(MC_DATUM); tft.setTextColor(0xFDA0, TFT_BLACK); tft.drawString(focusBuf, 120, 95, 7);
-    tft.setTextColor(0x9CD3, TFT_BLACK); tft.drawString("POMODORO READY", 120, 150, 2);
-  } else {
+    char focusBuf[8];
+    snprintf(focusBuf, sizeof(focusBuf), "%02d:00", deviceConfig.focusMinutes);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(0xFDA0, TFT_BLACK);
+    tft.drawString(focusBuf, 120, 95, 7);
+    tft.setTextColor(0x9CD3, TFT_BLACK);
+    tft.drawString("POMODORO READY", 120, 150, 2);
+  }
+  else
+  {
     tft.drawString("DEVICE DIAGNOSTICS", 12, 12, 2);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK); tft.drawString("HEAP " + String(ESP.getFreeHeap() / 1024.0, 1) + " KB", 12, 52, 2);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("HEAP " + String(ESP.getFreeHeap() / 1024.0, 1) + " KB", 12, 52, 2);
     tft.drawString("WIFI " + String(WiFi.RSSI()) + " dBm", 12, 82, 2);
     tft.drawString("UP " + String(millis() / 60000) + " MIN", 12, 112, 2);
-    tft.setTextColor(0x34D3, TFT_BLACK); tft.drawString(deviceConfig.notificationText, 12, 170, 1);
+    tft.setTextColor(0x34D3, TFT_BLACK);
+    tft.drawString(deviceConfig.notificationText, 12, 170, 1);
   }
 }
 
-void renderCurrentTheme() {
-  if (strcmp(deviceConfig.theme, "Editorial Weather Clock") == 0) {
+void renderCurrentTheme()
+{
+  if (strcmp(deviceConfig.theme, "Editorial Weather Clock") == 0)
+  {
     renderThemeEditorialClock();
-  } else if (strcmp(deviceConfig.theme, "Minimalist Clean Clock") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Minimalist Clean Clock") == 0)
+  {
     renderThemeMinimalClock();
-  } else if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0)
+  {
     renderThemeTokenMonitor();
-  } else if (strcmp(deviceConfig.theme, "Cosmic Shuttle & Prayer Station") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Cosmic Shuttle & Prayer Station") == 0)
+  {
     renderThemeShuttlePrayer();
-  } else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0)
+  {
     renderThemePhotoAlbum();
-  } else if (strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0)
+  {
     renderThemeAnalogCalendar();
-  } else if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0 ||
-             strcmp(deviceConfig.theme, "Now Playing") == 0 ||
-             strcmp(deviceConfig.theme, "Focus Timer") == 0 ||
-             strcmp(deviceConfig.theme, "Notifications & Diagnostics") == 0) {
+  }
+  else if (strcmp(deviceConfig.theme, "Network Health Monitor") == 0 ||
+           strcmp(deviceConfig.theme, "Now Playing") == 0 ||
+           strcmp(deviceConfig.theme, "Focus Timer") == 0 ||
+           strcmp(deviceConfig.theme, "Notifications & Diagnostics") == 0)
+  {
     renderThemeFeatureCard();
-  } else {
+  }
+  else
+  {
     renderThemePrayerWeather();
   }
 }
 
-void rotateToNextTheme() {
+void rotateToNextTheme()
+{
   int cur = 0;
-  for (int i = 0; i < NUM_THEMES; ++i) {
-    if (strcmp(deviceConfig.theme, allThemes[i]) == 0) {
+  for (int i = 0; i < NUM_THEMES; ++i)
+  {
+    if (strcmp(deviceConfig.theme, allThemes[i]) == 0)
+    {
       cur = i;
       break;
     }
@@ -1359,10 +1862,11 @@ void rotateToNextTheme() {
 }
 
 // REST API Handlers
-void handleApiStatus() {
+void handleApiStatus()
+{
   JsonDocument doc;
   doc["model"] = "SmallTV-Ultra";
-  doc["firmware"] = "Ultra-V9.0.69-Custom";
+  doc["firmware"] = "Ultra-V9.0.71-Custom";
   doc["chip"] = "ESP8266EX (80 MHz)";
   doc["flashSize"] = "4 MB";
   doc["freeHeap"] = String(ESP.getFreeHeap() / 1024.0, 1) + " KB";
@@ -1381,7 +1885,8 @@ void handleApiStatus() {
   server.send(200, "application/json", res);
 }
 
-void handleApiSettingsGet() {
+void handleApiSettingsGet()
+{
   JsonDocument doc;
   doc["display"]["theme"] = deviceConfig.theme;
   doc["display"]["brightness"] = deviceConfig.brightness;
@@ -1392,7 +1897,7 @@ void handleApiSettingsGet() {
   doc["weather"]["windSpeedUnit"] = deviceConfig.windUnit;
   doc["weather"]["pressureUnit"] = deviceConfig.pressureUnit;
   doc["weather"]["updateInterval"] = deviceConfig.updateInterval;
-  
+
   JsonObject p = doc["prayer"].to<JsonObject>();
   p["city"] = deviceConfig.city;
   p["country"] = deviceConfig.country;
@@ -1427,84 +1932,107 @@ void handleApiSettingsGet() {
   server.send(200, "application/json", res);
 }
 
-void handleApiSettingsPost() {
-  if (!server.hasArg("plain")) {
+void handleApiSettingsPost()
+{
+  if (!server.hasArg("plain"))
+  {
     server.send(400, "application/json", "{\"error\":\"Missing body\"}");
     return;
   }
 
   JsonDocument doc;
-  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok) {
+  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok)
+  {
     server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
     return;
   }
 
-  if (doc["display"]["theme"].is<const char*>()) {
+  if (doc["display"]["theme"].is<const char *>())
+  {
     strlcpy(deviceConfig.theme, doc["display"]["theme"], sizeof(deviceConfig.theme));
   }
-  if (doc["display"]["brightness"].is<int>()) {
+  if (doc["display"]["brightness"].is<int>())
+  {
     deviceConfig.brightness = doc["display"]["brightness"];
     setBacklight(deviceConfig.brightness);
   }
-  if (doc["display"]["autoSwitch"].is<bool>()) {
+  if (doc["display"]["autoSwitch"].is<bool>())
+  {
     deviceConfig.autoSwitch = doc["display"]["autoSwitch"];
   }
-  if (doc["display"]["switchInterval"].is<int>()) {
+  if (doc["display"]["switchInterval"].is<int>())
+  {
     deviceConfig.switchInterval = max(5, (int)doc["display"]["switchInterval"]);
   }
-  if (doc["media"]["nowPlaying"]["title"].is<const char*>()) {
+  if (doc["media"]["nowPlaying"]["title"].is<const char *>())
+  {
     strlcpy(deviceConfig.nowPlayingTitle, doc["media"]["nowPlaying"]["title"], sizeof(deviceConfig.nowPlayingTitle));
   }
-  if (doc["media"]["nowPlaying"]["source"].is<const char*>()) {
+  if (doc["media"]["nowPlaying"]["source"].is<const char *>())
+  {
     strlcpy(deviceConfig.nowPlayingSource, doc["media"]["nowPlaying"]["source"], sizeof(deviceConfig.nowPlayingSource));
   }
-  if (doc["focus"]["minutes"].is<int>()) {
+  if (doc["focus"]["minutes"].is<int>())
+  {
     deviceConfig.focusMinutes = constrain((int)doc["focus"]["minutes"], 1, 120);
   }
-  if (doc["notificationCenter"]["message"].is<const char*>()) {
+  if (doc["notificationCenter"]["message"].is<const char *>())
+  {
     strlcpy(deviceConfig.notificationText, doc["notificationCenter"]["message"], sizeof(deviceConfig.notificationText));
   }
-  if (doc["weather"]["city"].is<const char*>()) {
+  if (doc["weather"]["city"].is<const char *>())
+  {
     strlcpy(deviceConfig.city, doc["weather"]["city"], sizeof(deviceConfig.city));
   }
-  if (doc["prayer"]["city"].is<const char*>()) {
+  if (doc["prayer"]["city"].is<const char *>())
+  {
     strlcpy(deviceConfig.city, doc["prayer"]["city"], sizeof(deviceConfig.city));
   }
-  if (doc["prayer"]["latitude"].is<float>()) {
+  if (doc["prayer"]["latitude"].is<float>())
+  {
     deviceConfig.latitude = doc["prayer"]["latitude"];
   }
-  if (doc["prayer"]["longitude"].is<float>()) {
+  if (doc["prayer"]["longitude"].is<float>())
+  {
     deviceConfig.longitude = doc["prayer"]["longitude"];
   }
-  if (doc["prayer"]["method"].is<const char*>()) {
+  if (doc["prayer"]["method"].is<const char *>())
+  {
     strlcpy(deviceConfig.prayerMethod, doc["prayer"]["method"], sizeof(deviceConfig.prayerMethod));
   }
-  if (doc["prayer"]["asrMethod"].is<const char*>()) {
+  if (doc["prayer"]["asrMethod"].is<const char *>())
+  {
     strlcpy(deviceConfig.asrMethod, doc["prayer"]["asrMethod"], sizeof(deviceConfig.asrMethod));
   }
 
   // Time & Date Settings
   bool tzChanged = false;
-  if (doc["time"]["hourFormat"].is<const char*>()) {
+  if (doc["time"]["hourFormat"].is<const char *>())
+  {
     strlcpy(deviceConfig.hourFormat, doc["time"]["hourFormat"], sizeof(deviceConfig.hourFormat));
   }
-  if (doc["time"]["dateFormat"].is<const char*>()) {
+  if (doc["time"]["dateFormat"].is<const char *>())
+  {
     strlcpy(deviceConfig.dateFormat, doc["time"]["dateFormat"], sizeof(deviceConfig.dateFormat));
   }
-  if (doc["time"]["timezone"].is<const char*>()) {
+  if (doc["time"]["timezone"].is<const char *>())
+  {
     strlcpy(deviceConfig.timezone, doc["time"]["timezone"], sizeof(deviceConfig.timezone));
     deviceConfig.tzOffsetMinutes = parseTimezoneOffset(deviceConfig.timezone);
     tzChanged = true;
   }
-  if (doc["time"]["ntp"].is<const char*>()) {
+  if (doc["time"]["ntp"].is<const char *>())
+  {
     strlcpy(deviceConfig.ntpServer, doc["time"]["ntp"], sizeof(deviceConfig.ntpServer));
     tzChanged = true;
   }
-  if (tzChanged) {
+  if (tzChanged)
+  {
     configTime(deviceConfig.tzOffsetMinutes * 60, 0, deviceConfig.ntpServer, "pool.ntp.org", "time.google.com");
   }
 
-  if (doc["prayer"].is<JsonObject>()) {
+  if (doc["prayer"].is<JsonObject>())
+  {
     lastPrayerAttemptMillis = 0;
     lastPrayerSyncMillis = 0;
   }
@@ -1514,12 +2042,14 @@ void handleApiSettingsPost() {
   server.send(200, "application/json", "{\"success\":true,\"message\":\"Settings saved to flash.\"}");
 }
 
-void handleApiWifiScan() {
+void handleApiWifiScan()
+{
   int n = WiFi.scanNetworks();
   JsonDocument doc;
   JsonArray arr = doc["networks"].to<JsonArray>();
 
-  for (int i = 0; i < n && i < 15; ++i) {
+  for (int i = 0; i < n && i < 15; ++i)
+  {
     JsonObject net = arr.add<JsonObject>();
     net["ssid"] = WiFi.SSID(i);
     net["rssi"] = WiFi.RSSI(i);
@@ -1532,21 +2062,25 @@ void handleApiWifiScan() {
   server.send(200, "application/json", res);
 }
 
-void handleApiWifiConnect() {
-  if (!server.hasArg("plain")) {
+void handleApiWifiConnect()
+{
+  if (!server.hasArg("plain"))
+  {
     server.send(400, "application/json", "{\"error\":\"Missing body\"}");
     return;
   }
   JsonDocument doc;
-  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok) {
+  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok)
+  {
     server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
     return;
   }
 
-  const char* ssid = doc["ssid"] | "";
-  const char* pass = doc["password"] | "";
+  const char *ssid = doc["ssid"] | "";
+  const char *pass = doc["password"] | "";
 
-  if (strlen(ssid) == 0) {
+  if (strlen(ssid) == 0)
+  {
     server.send(400, "application/json", "{\"error\":\"SSID cannot be empty\"}");
     return;
   }
@@ -1561,7 +2095,8 @@ void handleApiWifiConnect() {
   WiFi.begin(deviceConfig.ssid, deviceConfig.password);
 }
 
-void handleApiTokensGet() {
+void handleApiTokensGet()
+{
   JsonDocument doc;
   doc["provider"] = tokenCache.provider;
   doc["model"] = tokenCache.model;
@@ -1590,23 +2125,32 @@ void handleApiTokensGet() {
   server.send(200, "application/json", res);
 }
 
-void handleApiTokensPost() {
-  if (!server.hasArg("plain")) {
+void handleApiTokensPost()
+{
+  if (!server.hasArg("plain"))
+  {
     server.send(400, "application/json", "{\"error\":\"Missing body\"}");
     return;
   }
   JsonDocument doc;
-  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok) {
+  if (deserializeJson(doc, server.arg("plain")) != DeserializationError::Ok)
+  {
     server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
     return;
   }
 
-  if (doc["provider"].is<const char*>()) strlcpy(tokenCache.provider, doc["provider"], sizeof(tokenCache.provider));
-  else if (doc["provider"].isNull()) tokenCache.provider[0] = '\0';
-  if (doc["model"].is<const char*>()) strlcpy(tokenCache.model, doc["model"], sizeof(tokenCache.model));
-  else if (doc["model"].isNull()) tokenCache.model[0] = '\0';
-  if (doc["sessionLabel"].is<const char*>()) strlcpy(tokenCache.sessionLabel, doc["sessionLabel"], sizeof(tokenCache.sessionLabel));
-  if (doc["weeklyLabel"].is<const char*>()) strlcpy(tokenCache.weeklyLabel, doc["weeklyLabel"], sizeof(tokenCache.weeklyLabel));
+  if (doc["provider"].is<const char *>())
+    strlcpy(tokenCache.provider, doc["provider"], sizeof(tokenCache.provider));
+  else if (doc["provider"].isNull())
+    tokenCache.provider[0] = '\0';
+  if (doc["model"].is<const char *>())
+    strlcpy(tokenCache.model, doc["model"], sizeof(tokenCache.model));
+  else if (doc["model"].isNull())
+    tokenCache.model[0] = '\0';
+  if (doc["sessionLabel"].is<const char *>())
+    strlcpy(tokenCache.sessionLabel, doc["sessionLabel"], sizeof(tokenCache.sessionLabel));
+  if (doc["weeklyLabel"].is<const char *>())
+    strlcpy(tokenCache.weeklyLabel, doc["weeklyLabel"], sizeof(tokenCache.weeklyLabel));
   // Clear retained usage when the collector explicitly reports an unavailable source.
   if (doc["sessionTokens"].is<long>()) tokenCache.sessionTokens = doc["sessionTokens"];
   else if (doc["sessionTokens"].isNull()) tokenCache.sessionTokens = 0;
@@ -1616,28 +2160,34 @@ void handleApiTokensPost() {
   else if (doc["weeklyTokens"].isNull()) tokenCache.weeklyTokens = 0;
   if (doc["weeklyLimit"].is<long>()) tokenCache.weeklyLimit = doc["weeklyLimit"];
   else if (doc["weeklyLimit"].isNull()) tokenCache.weeklyLimit = 0;
-  if (doc["sessionPct"].is<int>()) tokenCache.sessionPct = constrain((int)doc["sessionPct"], 0, 100);
-  else if (doc["sessionPct"].isNull()) tokenCache.sessionPct = -1;
+  if (!doc["sessionPct"].isNull()) tokenCache.sessionPct = constrain((int)doc["sessionPct"].as<float>(), 0, 100);
+  else tokenCache.sessionPct = -1;
   
   if (doc["sessionText"].is<const char*>()) {
     strlcpy(tokenCache.sessionText, doc["sessionText"], sizeof(tokenCache.sessionText));
-  } else if (doc["sessionTokens"].is<long>() && doc["sessionLimit"].is<long>()) {
+  }
+  else if (doc["sessionTokens"].is<long>() && doc["sessionLimit"].is<long>())
+  {
     long cur = doc["sessionTokens"];
     long lim = doc["sessionLimit"];
-    if (lim > 0 && !doc["sessionPct"].is<int>()) tokenCache.sessionPct = constrain((int)((cur * 100) / lim), 0, 100);
+    if (lim > 0 && doc["sessionPct"].isNull()) tokenCache.sessionPct = constrain((int)((cur * 100) / lim), 0, 100);
     if (lim <= 100) {
       snprintf(tokenCache.sessionText, sizeof(tokenCache.sessionText), "%d%% Remaining", tokenCache.sessionPct);
-    } else if (lim >= 1000000) {
+    }
+    else if (lim >= 1000000)
+    {
       snprintf(tokenCache.sessionText, sizeof(tokenCache.sessionText), "%.1fk / %.1fM", cur / 1000.0, lim / 1000000.0);
-    } else {
+    }
+    else
+    {
       snprintf(tokenCache.sessionText, sizeof(tokenCache.sessionText), "%.1fk / %ldk", cur / 1000.0, lim / 1000);
     }
   }
 
   if (doc["sessionReset"].is<const char*>()) strlcpy(tokenCache.sessionReset, doc["sessionReset"], sizeof(tokenCache.sessionReset));
   else if (doc["sessionReset"].isNull()) tokenCache.sessionReset[0] = '\0';
-  if (doc["weeklyPct"].is<int>()) tokenCache.weeklyPct = constrain((int)doc["weeklyPct"], 0, 100);
-  else if (doc["weeklyPct"].isNull()) tokenCache.weeklyPct = -1;
+  if (!doc["weeklyPct"].isNull()) tokenCache.weeklyPct = constrain((int)doc["weeklyPct"].as<float>(), 0, 100);
+  else tokenCache.weeklyPct = -1;
   if (doc["telemetryState"].is<const char*>()) strlcpy(tokenCache.telemetryState, doc["telemetryState"], sizeof(tokenCache.telemetryState));
   if (doc["sourceLabel"].is<const char*>()) strlcpy(tokenCache.sourceLabel, doc["sourceLabel"], sizeof(tokenCache.sourceLabel));
   if (doc["observedAt"].is<unsigned long>()) tokenCache.observedAt = doc["observedAt"];
@@ -1645,43 +2195,59 @@ void handleApiTokensPost() {
   if (doc["sessionWindowMinutes"].is<int>()) tokenCache.sessionWindowMinutes = doc["sessionWindowMinutes"];
   if (doc["weeklyWindowMinutes"].is<int>()) tokenCache.weeklyWindowMinutes = doc["weeklyWindowMinutes"];
 
-  if (doc["weeklyText"].is<const char*>()) {
+  if (doc["weeklyText"].is<const char *>())
+  {
     strlcpy(tokenCache.weeklyText, doc["weeklyText"], sizeof(tokenCache.weeklyText));
-  } else if (doc["weeklyTokens"].is<long>() && doc["weeklyLimit"].is<long>()) {
+  }
+  else if (doc["weeklyTokens"].is<long>() && doc["weeklyLimit"].is<long>())
+  {
     long cur = doc["weeklyTokens"];
     long lim = doc["weeklyLimit"];
-    if (lim > 0 && !doc["weeklyPct"].is<int>()) tokenCache.weeklyPct = constrain((int)((cur * 100) / lim), 0, 100);
-    if (lim <= 100) {
+    if (lim > 0 && !doc["weeklyPct"].is<int>())
+      tokenCache.weeklyPct = constrain((int)((cur * 100) / lim), 0, 100);
+    if (lim <= 100)
+    {
       snprintf(tokenCache.weeklyText, sizeof(tokenCache.weeklyText), "%d%% Remaining", tokenCache.weeklyPct);
-    } else if (cur >= 1000000) {
+    }
+    else if (cur >= 1000000)
+    {
       snprintf(tokenCache.weeklyText, sizeof(tokenCache.weeklyText), "%.1fM / %.1fM", cur / 1000000.0, lim / 1000000.0);
-    } else {
+    }
+    else
+    {
       snprintf(tokenCache.weeklyText, sizeof(tokenCache.weeklyText), "%ldk / %.1fM", cur / 1000, lim / 1000000.0);
     }
   }
 
-  if (doc["weeklyReset"].is<const char*>()) strlcpy(tokenCache.weeklyReset, doc["weeklyReset"], sizeof(tokenCache.weeklyReset));
-  else if (doc["weeklyReset"].isNull()) tokenCache.weeklyReset[0] = '\0';
-  if (doc["agentState"].is<const char*>()) strlcpy(tokenCache.agentState, doc["agentState"], sizeof(tokenCache.agentState));
+  if (doc["weeklyReset"].is<const char *>())
+    strlcpy(tokenCache.weeklyReset, doc["weeklyReset"], sizeof(tokenCache.weeklyReset));
+  else if (doc["weeklyReset"].isNull())
+    tokenCache.weeklyReset[0] = '\0';
+  if (doc["agentState"].is<const char *>())
+    strlcpy(tokenCache.agentState, doc["agentState"], sizeof(tokenCache.agentState));
 
   tokenCache.laptopConnected = strcmp(tokenCache.telemetryState, "unavailable") != 0 && strlen(tokenCache.provider) > 0;
   tokenCache.lastSyncMillis = millis();
 
-  if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0) {
+  if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0)
+  {
     renderCurrentTheme();
   }
 
   server.send(200, "application/json", "{\"success\":true,\"message\":\"Tokens updated.\"}");
 }
 
-void handleApiSystemReset() {
-  if (LittleFS.exists("/config.json")) LittleFS.remove("/config.json");
+void handleApiSystemReset()
+{
+  if (LittleFS.exists("/config.json"))
+    LittleFS.remove("/config.json");
   server.send(200, "application/json", "{\"success\":true,\"message\":\"Settings erased; rebooting into setup mode\"}");
   delay(500);
   ESP.restart();
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   pinMode(PIN_BACKLIGHT, OUTPUT);
   analogWriteFreq(1000);
@@ -1710,7 +2276,8 @@ void setup() {
   dnsServer.start(DNS_PORT, "*", apIP);
 
   // Attempt auto-connect if credentials exist
-  if (strlen(deviceConfig.ssid) > 0) {
+  if (strlen(deviceConfig.ssid) > 0)
+  {
     WiFi.begin(deviceConfig.ssid, deviceConfig.password);
   }
 
@@ -1724,7 +2291,8 @@ void setup() {
   serveDashboard(server);
 
   // Captive Portal / Fallback Handler: always serve dashboard on any unhandled route
-  server.onNotFound([]() {
+  server.onNotFound([]()
+                    {
     String uri = server.uri();
     if (uri.endsWith(".html") || uri.endsWith("/") || uri.indexOf("generate_204") >= 0 || uri.indexOf("hotspot-detect") >= 0 || uri.indexOf("connecttest") >= 0) {
       server.sendHeader("Location", "http://192.168.4.1/", true);
@@ -1732,8 +2300,7 @@ void setup() {
     } else {
       server.sendHeader("Content-Encoding", "gzip");
       server.send_P(200, "text/html", (PGM_P)DASHBOARD_HTML_GZ, DASHBOARD_HTML_GZ_LEN);
-    }
-  });
+    } });
 
   // Register OTA Update Server on /update for easy future updates and rollback
   httpUpdater.setup(&server, "/update");
@@ -1748,13 +2315,14 @@ void setup() {
   server.on("/api/wifi/connect", HTTP_POST, handleApiWifiConnect);
 
   // Photo & Media Endpoints
-  server.on("/api/media/upload", HTTP_POST, []() {
+  server.on("/api/media/upload", HTTP_POST, []()
+            {
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.send(200, "application/json", "{\"success\":true,\"message\":\"Photo saved successfully!\"}");
     if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
       renderCurrentTheme();
-    }
-  }, []() {
+    } }, []()
+            {
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
       LittleFS.remove("/photo.raw");
@@ -1767,19 +2335,19 @@ void setup() {
       if (photoUploadFile) {
         photoUploadFile.close();
       }
-    }
-  });
+    } });
 
-  server.on("/api/media/delete", HTTP_POST, []() {
+  server.on("/api/media/delete", HTTP_POST, []()
+            {
     server.sendHeader("Access-Control-Allow-Origin", "*");
     LittleFS.remove("/photo.raw");
     if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") == 0) {
       renderCurrentTheme();
     }
-    server.send(200, "application/json", "{\"success\":true,\"message\":\"Photo deleted\"}");
-  });
+    server.send(200, "application/json", "{\"success\":true,\"message\":\"Photo deleted\"}"); });
 
-  server.on("/api/media/status", HTTP_GET, []() {
+  server.on("/api/media/status", HTTP_GET, []()
+            {
     server.sendHeader("Access-Control-Allow-Origin", "*");
     bool hasPhoto = LittleFS.exists("/photo.raw");
     size_t size = 0;
@@ -1790,21 +2358,21 @@ void setup() {
     String json = "{\"hasPhoto\":" + String(hasPhoto ? "true" : "false") + 
                   ",\"size\":" + String(size) + 
                   ",\"theme\":\"" + String(deviceConfig.theme) + "\"}";
-    server.send(200, "application/json", json);
-  });
+    server.send(200, "application/json", json); });
 
-  server.on("/api/system/reboot", HTTP_POST, []() {
+  server.on("/api/system/reboot", HTTP_POST, []()
+            {
     server.send(200, "application/json", "{\"success\":true,\"message\":\"Rebooting...\"}");
     delay(500);
-    ESP.restart();
-  });
+    ESP.restart(); });
   server.on("/api/system/reset", HTTP_POST, handleApiSystemReset);
 
   server.begin();
   Serial.println("SmallTV Web Server started with True Black ST7789 themes.");
 }
 
-void loop() {
+void loop()
+{
   dnsServer.processNextRequest();
   server.handleClient();
 
@@ -1812,57 +2380,70 @@ void loop() {
   bool prayerDue = lastPrayerSyncMillis == 0 || nowMillis - lastPrayerSyncMillis >= 21600000UL;
   bool prayerRetryReady = lastPrayerAttemptMillis == 0 || nowMillis - lastPrayerAttemptMillis >= 300000UL;
   time_t prayerNow = time(nullptr);
-  struct tm* prayerClock = localtime(&prayerNow);
+  struct tm *prayerClock = localtime(&prayerNow);
   bool prayerClockReady = prayerClock && prayerClock->tm_year + 1900 >= 2024;
-  if (prayerDue && prayerRetryReady && prayerClockReady && WiFi.status() == WL_CONNECTED) {
+  if (prayerDue && prayerRetryReady && prayerClockReady && WiFi.status() == WL_CONNECTED)
+  {
     lastPrayerAttemptMillis = nowMillis;
-    if (refreshPrayerTimes()) {
+    if (refreshPrayerTimes())
+    {
       lastPrayerSyncMillis = nowMillis;
       Serial.println("Prayer times updated from AlAdhan.");
       renderCurrentTheme();
-    } else {
+    }
+    else
+    {
       Serial.println("Prayer time update failed; retrying in 5 minutes.");
     }
   }
 
   // Dynamic Theme Looping: automatically rotate themes sequentially
-  if (deviceConfig.autoSwitch) {
+  if (deviceConfig.autoSwitch)
+  {
     static unsigned long lastAutoRotate = 0;
     unsigned long intervalMs = (unsigned long)max(5, deviceConfig.switchInterval) * 1000;
-    if (millis() - lastAutoRotate >= intervalMs) {
+    if (millis() - lastAutoRotate >= intervalMs)
+    {
       lastAutoRotate = millis();
       rotateToNextTheme();
     }
   }
 
   // Laptop companion idle check: if no telemetry received for 60s, mark idle
-  if (tokenCache.laptopConnected && tokenCache.lastSyncMillis > 0 && (millis() - tokenCache.lastSyncMillis > 60000)) {
+  if (tokenCache.laptopConnected && tokenCache.lastSyncMillis > 0 && (millis() - tokenCache.lastSyncMillis > 60000))
+  {
     tokenCache.laptopConnected = false;
-    if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0) {
+    if (strcmp(deviceConfig.theme, "AI Token & Rate Monitor") == 0)
+    {
       renderCurrentTheme();
     }
   }
 
   bool prayerWeatherTheme = strcmp(deviceConfig.theme, "Weather & Prayer Station") == 0;
   bool analogCalendarTheme = strcmp(deviceConfig.theme, "Analog Calendar Clock") == 0;
-  if (prayerWeatherTheme) {
+  if (prayerWeatherTheme)
+  {
     static unsigned long lastClockFrame = 0;
     static unsigned long lastWeatherFrame = 0;
 
-    if (millis() - lastClockFrame >= 500) {
+    if (millis() - lastClockFrame >= 500)
+    {
       lastClockFrame = millis();
       drawPrayerWeatherClock(((millis() / 500) % 2) == 0);
     }
 
-    if (millis() - lastWeatherFrame >= 250) {
+    if (millis() - lastWeatherFrame >= 250)
+    {
       lastWeatherFrame = millis();
-      drawSunAndCloud(10, 26, (millis() / 250) % 8);
+      drawSunAndCloud(10, 18, (millis() / 250) % 8);
     }
   }
 
-  if (analogCalendarTheme) {
+  if (analogCalendarTheme)
+  {
     static unsigned long lastAnalogFrame = 0;
-    if (millis() - lastAnalogFrame >= 1000) {
+    if (millis() - lastAnalogFrame >= 1000)
+    {
       lastAnalogFrame = millis();
       partialThemeRefresh = true;
       renderThemeAnalogCalendar();
@@ -1872,16 +2453,20 @@ void loop() {
 
   // Update only dynamic regions on the prayer/weather theme to avoid a full-screen flash.
   time_t now = time(nullptr);
-  struct tm* t = localtime(&now);
+  struct tm *t = localtime(&now);
   int curMin = t ? t->tm_min : (millis() / 60000);
-  if (curMin != lastRenderedMinute) {
+  if (curMin != lastRenderedMinute)
+  {
     lastTick = millis();
     lastRenderedMinute = curMin;
-    if (prayerWeatherTheme) {
+    if (prayerWeatherTheme)
+    {
       drawPrayerWeatherClock(true);
       drawPrayerWeatherDate();
       drawPrayerWeatherSchedule();
-    } else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") != 0) {
+    }
+    else if (strcmp(deviceConfig.theme, "Photo Frame & Ambient Album") != 0)
+    {
       partialThemeRefresh = true;
       renderCurrentTheme();
       partialThemeRefresh = false;
